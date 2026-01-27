@@ -2,42 +2,44 @@
   YandereOS Kernel Implementation - V3.5
   Adds: Watchdog timer, IPC, DDI, Stack traces, Fixed compaction
 */
+//KERNELOS.cpp FILE
 
-#include "kernel.h"
+#include "kernelOS.h"
 
 // ============================================================================
 // STATIC MEMBER INITIALIZATION
 // ============================================================================
 
-Task Kernel::tasks[MAX_TASKS];
-int Kernel::currentTaskId = 0;
-int Kernel::nextTaskId = 1;
+Task KernelOS::tasks[MAX_TASKS];
+int KernelOS::currentTaskId = 0;
+int KernelOS::nextTaskId = 1;
 
-uint8_t Kernel::kernelHeap[KERNEL_HEAP_SIZE];
-size_t Kernel::heapUsed = 0;
+uint8_t KernelOS::kernelHeap[KERNEL_HEAP_SIZE];
+size_t KernelOS::heapUsed = 0;
 
-FileHandle Kernel::fileHandles[MAX_FILE_HANDLES];
-DirHandle Kernel::dirHandles[MAX_DIR_HANDLES];
-bool Kernel::sdInitialized = false;
+FileHandle KernelOS::fileHandles[MAX_FILE_HANDLES];
+DirHandle KernelOS::dirHandles[MAX_DIR_HANDLES];
+bool KernelOS::sdInitialized = false;
 
-MessageQueue Kernel::messageQueues[MAX_TASKS];
-Semaphore Kernel::semaphores[MAX_SEMAPHORES];
+MessageQueue KernelOS::messageQueues[MAX_TASKS];
+Semaphore KernelOS::semaphores[MAX_SEMAPHORES];
 
-bool Kernel::watchdogEnabled = true;
-uint32_t Kernel::watchdogLastCheck = 0;
+bool KernelOS::watchdogEnabled = true;
+uint32_t KernelOS::watchdogLastCheck = 0;
 
-bool Kernel::initialized = false;
-uint32_t Kernel::bootTime = 0;
+bool KernelOS::initialized = false;
+uint32_t KernelOS::bootTime = 0;
 
 // ============================================================================
 // INITIALIZATION
 // ============================================================================
 
-bool Kernel::init() {
+bool KernelOS::init() {
   if (initialized) return true;
   
   Serial.begin(9600);
-  while (!Serial && millis() < 3000);
+  while (!Serial);
+  delay(500);
   
   Serial.println(F("\n=== YandereOS Kernel v3.5 ==="));
   Serial.println(F("Features: Watchdog, IPC, DDI, Stack Traces"));
@@ -111,7 +113,7 @@ bool Kernel::init() {
   return true;
 }
 
-void Kernel::panic(const char* message) {
+void KernelOS::panic(const char* message) {
   Serial.println(F("\n!!! KERNEL PANIC !!!"));
   Serial.println(message);
   
@@ -145,7 +147,7 @@ void Kernel::panic(const char* message) {
 // STACK TRACING
 // ============================================================================
 
-void Kernel::captureStackTrace(Task* task) {
+void KernelOS::captureStackTrace(Task* task) {
   if (!task) return;
   
   // Simple stack capture - on Arduino, this is limited
@@ -158,7 +160,7 @@ void Kernel::captureStackTrace(Task* task) {
   // which is not easily accessible on Arduino
 }
 
-void Kernel::printStackTrace(Task* task) {
+void KernelOS::printStackTrace(Task* task) {
   if (!task || task->stackTraceDepth == 0) {
     Serial.println(F("No stack trace available"));
     return;
@@ -185,7 +187,7 @@ void Kernel::printStackTrace(Task* task) {
 // TASK MANAGEMENT
 // ============================================================================
 
-int Kernel::allocateTaskId() {
+int KernelOS::allocateTaskId() {
   for (int i = 1; i < MAX_TASKS; i++) {
     if (tasks[i].state == TASK_EMPTY) {
       return i;
@@ -194,17 +196,17 @@ int Kernel::allocateTaskId() {
   return -1;
 }
 
-Task* Kernel::getCurrentTask() {
+Task* KernelOS::getCurrentTask() {
   return &tasks[currentTaskId];
 }
 
-Task* Kernel::getTask(int taskId) {
+Task* KernelOS::getTask(int taskId) {
   if (taskId < 0 || taskId >= MAX_TASKS) return nullptr;
   if (tasks[taskId].state == TASK_EMPTY) return nullptr;
   return &tasks[taskId];
 }
 
-int Kernel::createTask(const char* name, void (*entryPoint)()) {
+int KernelOS::createTask(const char* name, void (*entryPoint)()) {
   int taskId = allocateTaskId();
   if (taskId < 0) {
     return SYS_ERR_NO_MEMORY;
@@ -252,7 +254,7 @@ int Kernel::createTask(const char* name, void (*entryPoint)()) {
   return taskId;
 }
 
-void Kernel::killTask(int taskId) {
+void KernelOS::killTask(int taskId) {
   Task* task = getTask(taskId);
   if (!task || taskId == 0) return;
   
@@ -281,20 +283,20 @@ void Kernel::killTask(int taskId) {
 // WATCHDOG TIMER
 // ============================================================================
 
-void Kernel::enableWatchdog(bool enable) {
+void KernelOS::enableWatchdog(bool enable) {
   watchdogEnabled = enable;
   Serial.print(F("Watchdog "));
   Serial.println(enable ? F("enabled") : F("disabled"));
 }
 
-void Kernel::feedWatchdog() {
+void KernelOS::feedWatchdog() {
   Task* current = getCurrentTask();
   if (current) {
     current->lastYield = millis();
   }
 }
 
-void Kernel::checkWatchdog() {
+void KernelOS::checkWatchdog() {
   if (!watchdogEnabled) return;
   
   uint32_t now = millis();
@@ -328,7 +330,7 @@ void Kernel::checkWatchdog() {
   }
 }
 
-void Kernel::schedule() {
+void KernelOS::schedule() {
   checkWatchdog();
   
   uint32_t now = millis();
@@ -373,7 +375,7 @@ void Kernel::schedule() {
   }
 }
 
-void Kernel::yield() {
+void KernelOS::yield() {
   Task* current = getCurrentTask();
   if (current) {
     current->state = TASK_READY;
@@ -381,7 +383,7 @@ void Kernel::yield() {
   }
 }
 
-void Kernel::sleep(uint32_t ms) {
+void KernelOS::sleep(uint32_t ms) {
   Task* current = getCurrentTask();
   if (current) {
     current->state = TASK_SLEEPING;
@@ -394,12 +396,12 @@ void Kernel::sleep(uint32_t ms) {
 // MEMORY MANAGEMENT - FIXED COMPACTION
 // ============================================================================
 
-MemoryBlock* Kernel::getBlockHeader(void* ptr) {
+MemoryBlock* KernelOS::getBlockHeader(void* ptr) {
   if (!ptr) return nullptr;
   return (MemoryBlock*)((uint8_t*)ptr - sizeof(MemoryBlock));
 }
 
-void* Kernel::allocateMemoryInternal(size_t size, int taskId) {
+void* KernelOS::allocateMemoryInternal(size_t size, int taskId) {
   if (size == 0) return nullptr;
   
   // Align to 4 bytes
@@ -436,7 +438,7 @@ void* Kernel::allocateMemoryInternal(size_t size, int taskId) {
   return userPtr;
 }
 
-void Kernel::freeMemoryInternal(void* ptr) {
+void KernelOS::freeMemoryInternal(void* ptr) {
   if (!ptr) return;
   
   MemoryBlock* block = getBlockHeader(ptr);
@@ -452,7 +454,7 @@ void Kernel::freeMemoryInternal(void* ptr) {
   block->inUse = false;
 }
 
-void Kernel::compactMemory() {
+void KernelOS::compactMemory() {
   /*
    * FIXED COMPACTION ALGORITHM
    * 
@@ -512,19 +514,19 @@ void Kernel::compactMemory() {
   }
 }
 
-void* Kernel::memAlloc(size_t size) {
+void* KernelOS::memAlloc(size_t size) {
   return allocateMemoryInternal(size, currentTaskId);
 }
 
-void Kernel::memFree(void* ptr) {
+void KernelOS::memFree(void* ptr) {
   freeMemoryInternal(ptr);
 }
 
-size_t Kernel::memAvailable() {
+size_t KernelOS::memAvailable() {
   return KERNEL_HEAP_SIZE - heapUsed;
 }
 
-void Kernel::memCompact() {
+void KernelOS::memCompact() {
   compactMemory();
 }
 
@@ -532,7 +534,7 @@ void Kernel::memCompact() {
 // IPC - MESSAGE QUEUES
 // ============================================================================
 
-int Kernel::ipcSend(int toTaskId, const void* data, size_t length) {
+int KernelOS::ipcSend(int toTaskId, const void* data, size_t length) {
   if (toTaskId < 0 || toTaskId >= MAX_TASKS) return SYS_ERR_INVALID_PARAM;
   if (tasks[toTaskId].state == TASK_EMPTY) return SYS_ERR_NOT_FOUND;
   if (length > sizeof(Message::data)) return SYS_ERR_INVALID_PARAM;
@@ -560,7 +562,7 @@ int Kernel::ipcSend(int toTaskId, const void* data, size_t length) {
   return SYS_OK;
 }
 
-int Kernel::ipcReceive(void* buffer, size_t maxLength, int* fromTaskId) {
+int KernelOS::ipcReceive(void* buffer, size_t maxLength, int* fromTaskId) {
   MessageQueue* queue = &messageQueues[currentTaskId];
   
   if (queue->count == 0) {
@@ -593,7 +595,7 @@ int Kernel::ipcReceive(void* buffer, size_t maxLength, int* fromTaskId) {
   return length;
 }
 
-int Kernel::ipcPoll() {
+int KernelOS::ipcPoll() {
   return messageQueues[currentTaskId].count;
 }
 
@@ -601,7 +603,7 @@ int Kernel::ipcPoll() {
 // IPC - SEMAPHORES
 // ============================================================================
 
-int Kernel::allocateSemaphore() {
+int KernelOS::allocateSemaphore() {
   for (int i = 0; i < MAX_SEMAPHORES; i++) {
     if (!semaphores[i].inUse) {
       return i;
@@ -610,7 +612,7 @@ int Kernel::allocateSemaphore() {
   return -1;
 }
 
-int Kernel::semCreate(int initialValue, int maxValue, const char* name) {
+int KernelOS::semCreate(int initialValue, int maxValue, const char* name) {
   if (initialValue < 0 || maxValue < 1 || initialValue > maxValue) {
     return SYS_ERR_INVALID_PARAM;
   }
@@ -629,7 +631,7 @@ int Kernel::semCreate(int initialValue, int maxValue, const char* name) {
   return semId;
 }
 
-int Kernel::semWait(int semId, uint32_t timeoutMs) {
+int KernelOS::semWait(int semId, uint32_t timeoutMs) {
   if (semId < 0 || semId >= MAX_SEMAPHORES) return SYS_ERR_INVALID_PARAM;
   if (!semaphores[semId].inUse) return SYS_ERR_NOT_FOUND;
   
@@ -647,7 +649,7 @@ int Kernel::semWait(int semId, uint32_t timeoutMs) {
   return SYS_OK;
 }
 
-int Kernel::semPost(int semId) {
+int KernelOS::semPost(int semId) {
   if (semId < 0 || semId >= MAX_SEMAPHORES) return SYS_ERR_INVALID_PARAM;
   if (!semaphores[semId].inUse) return SYS_ERR_NOT_FOUND;
   
@@ -661,7 +663,7 @@ int Kernel::semPost(int semId) {
   return SYS_OK;
 }
 
-int Kernel::semDestroy(int semId) {
+int KernelOS::semDestroy(int semId) {
   if (semId < 0 || semId >= MAX_SEMAPHORES) return SYS_ERR_INVALID_PARAM;
   if (!semaphores[semId].inUse) return SYS_ERR_NOT_FOUND;
   
@@ -678,7 +680,7 @@ int Kernel::semDestroy(int semId) {
 // DEVICE DRIVER INTERFACE - GPIO
 // ============================================================================
 
-int Kernel::gpioSetMode(int pin, int mode) {
+int KernelOS::gpioSetMode(int pin, int mode) {
   Task* current = getCurrentTask();
   if (!current->canAccessGPIO) return SYS_ERR_PERMISSION;
   
@@ -686,7 +688,7 @@ int Kernel::gpioSetMode(int pin, int mode) {
   return SYS_OK;
 }
 
-int Kernel::gpioWrite(int pin, int value) {
+int KernelOS::gpioWrite(int pin, int value) {
   Task* current = getCurrentTask();
   if (!current->canAccessGPIO) return SYS_ERR_PERMISSION;
   
@@ -694,21 +696,21 @@ int Kernel::gpioWrite(int pin, int value) {
   return SYS_OK;
 }
 
-int Kernel::gpioRead(int pin) {
+int KernelOS::gpioRead(int pin) {
   Task* current = getCurrentTask();
   if (!current->canAccessGPIO) return SYS_ERR_PERMISSION;
   
   return digitalRead(pin);
 }
 
-int Kernel::gpioAnalogRead(int pin) {
+int KernelOS::gpioAnalogRead(int pin) {
   Task* current = getCurrentTask();
   if (!current->canAccessGPIO) return SYS_ERR_PERMISSION;
   
   return analogRead(pin);
 }
 
-int Kernel::gpioAnalogWrite(int pin, int value) {
+int KernelOS::gpioAnalogWrite(int pin, int value) {
   Task* current = getCurrentTask();
   if (!current->canAccessGPIO) return SYS_ERR_PERMISSION;
   
@@ -720,7 +722,7 @@ int Kernel::gpioAnalogWrite(int pin, int value) {
 // DEVICE DRIVER INTERFACE - I2C
 // ============================================================================
 
-int Kernel::i2cBegin(uint8_t address) {
+int KernelOS::i2cBegin(uint8_t address) {
   Task* current = getCurrentTask();
   if (!current->canAccessI2C) return SYS_ERR_PERMISSION;
   
@@ -733,7 +735,7 @@ int Kernel::i2cBegin(uint8_t address) {
   return SYS_OK;
 }
 
-int Kernel::i2cWrite(uint8_t address, const uint8_t* data, size_t length) {
+int KernelOS::i2cWrite(uint8_t address, const uint8_t* data, size_t length) {
   Task* current = getCurrentTask();
   if (!current->canAccessI2C) return SYS_ERR_PERMISSION;
   if (!data || length == 0) return SYS_ERR_INVALID_PARAM;
@@ -749,7 +751,7 @@ int Kernel::i2cWrite(uint8_t address, const uint8_t* data, size_t length) {
   return written;
 }
 
-int Kernel::i2cRead(uint8_t address, uint8_t* buffer, size_t length) {
+int KernelOS::i2cRead(uint8_t address, uint8_t* buffer, size_t length) {
   Task* current = getCurrentTask();
   if (!current->canAccessI2C) return SYS_ERR_PERMISSION;
   if (!buffer || length == 0) return SYS_ERR_INVALID_PARAM;
@@ -771,7 +773,7 @@ int Kernel::i2cRead(uint8_t address, uint8_t* buffer, size_t length) {
   return bytesRead;
 }
 
-int Kernel::i2cRequest(uint8_t address, size_t quantity) {
+int KernelOS::i2cRequest(uint8_t address, size_t quantity) {
   Task* current = getCurrentTask();
   if (!current->canAccessI2C) return SYS_ERR_PERMISSION;
   
@@ -782,7 +784,7 @@ int Kernel::i2cRequest(uint8_t address, size_t quantity) {
 // DEVICE DRIVER INTERFACE - SPI
 // ============================================================================
 
-int Kernel::spiBegin() {
+int KernelOS::spiBegin() {
   Task* current = getCurrentTask();
   if (!current->canAccessSPI) return SYS_ERR_PERMISSION;
   
@@ -790,7 +792,7 @@ int Kernel::spiBegin() {
   return SYS_OK;
 }
 
-int Kernel::spiTransfer(uint8_t* txData, uint8_t* rxData, size_t length) {
+int KernelOS::spiTransfer(uint8_t* txData, uint8_t* rxData, size_t length) {
   Task* current = getCurrentTask();
   if (!current->canAccessSPI) return SYS_ERR_PERMISSION;
   if (length == 0) return SYS_ERR_INVALID_PARAM;
@@ -812,7 +814,7 @@ int Kernel::spiTransfer(uint8_t* txData, uint8_t* rxData, size_t length) {
   return length;
 }
 
-int Kernel::spiEnd() {
+int KernelOS::spiEnd() {
   Task* current = getCurrentTask();
   if (!current->canAccessSPI) return SYS_ERR_PERMISSION;
   
@@ -824,7 +826,7 @@ int Kernel::spiEnd() {
 // FILE SYSTEM
 // ============================================================================
 
-int Kernel::allocateFileHandle() {
+int KernelOS::allocateFileHandle() {
   for (int i = 0; i < MAX_FILE_HANDLES; i++) {
     if (!fileHandles[i].inUse) {
       return i;
@@ -833,7 +835,7 @@ int Kernel::allocateFileHandle() {
   return -1;
 }
 
-int Kernel::allocateDirHandle() {
+int KernelOS::allocateDirHandle() {
   for (int i = 0; i < MAX_DIR_HANDLES; i++) {
     if (!dirHandles[i].inUse) {
       return i;
@@ -842,7 +844,7 @@ int Kernel::allocateDirHandle() {
   return -1;
 }
 
-void Kernel::freeFileHandle(int handle) {
+void KernelOS::freeFileHandle(int handle) {
   if (handle < 0 || handle >= MAX_FILE_HANDLES) return;
   
   if (fileHandles[handle].inUse) {
@@ -851,7 +853,7 @@ void Kernel::freeFileHandle(int handle) {
   }
 }
 
-void Kernel::freeDirHandle(int handle) {
+void KernelOS::freeDirHandle(int handle) {
   if (handle < 0 || handle >= MAX_DIR_HANDLES) return;
   
   if (dirHandles[handle].inUse) {
@@ -860,7 +862,7 @@ void Kernel::freeDirHandle(int handle) {
   }
 }
 
-int Kernel::fileOpen(const char* path, bool write) {
+int KernelOS::fileOpen(const char* path, bool write) {
   if (!sdInitialized) return SYS_ERR_IO_ERROR;
   
   Task* current = getCurrentTask();
@@ -884,7 +886,7 @@ int Kernel::fileOpen(const char* path, bool write) {
   return handle;
 }
 
-int Kernel::fileClose(int handle) {
+int KernelOS::fileClose(int handle) {
   if (handle < 0 || handle >= MAX_FILE_HANDLES) return SYS_ERR_INVALID_PARAM;
   if (!fileHandles[handle].inUse) return SYS_ERR_INVALID_PARAM;
   if (fileHandles[handle].ownerTaskId != currentTaskId) return SYS_ERR_PERMISSION;
@@ -895,7 +897,7 @@ int Kernel::fileClose(int handle) {
   return SYS_OK;
 }
 
-int Kernel::fileRead(int handle, void* buffer, size_t size) {
+int KernelOS::fileRead(int handle, void* buffer, size_t size) {
   if (handle < 0 || handle >= MAX_FILE_HANDLES) return SYS_ERR_INVALID_PARAM;
   if (!fileHandles[handle].inUse) return SYS_ERR_INVALID_PARAM;
   if (fileHandles[handle].ownerTaskId != currentTaskId) return SYS_ERR_PERMISSION;
@@ -903,7 +905,7 @@ int Kernel::fileRead(int handle, void* buffer, size_t size) {
   return fileHandles[handle].file.read((uint8_t*)buffer, size);
 }
 
-int Kernel::fileWrite(int handle, const void* buffer, size_t size) {
+int KernelOS::fileWrite(int handle, const void* buffer, size_t size) {
   if (handle < 0 || handle >= MAX_FILE_HANDLES) return SYS_ERR_INVALID_PARAM;
   if (!fileHandles[handle].inUse) return SYS_ERR_INVALID_PARAM;
   if (fileHandles[handle].ownerTaskId != currentTaskId) return SYS_ERR_PERMISSION;
@@ -912,7 +914,7 @@ int Kernel::fileWrite(int handle, const void* buffer, size_t size) {
   return fileHandles[handle].file.write((const uint8_t*)buffer, size);
 }
 
-bool Kernel::fileDelete(const char* path) {
+bool KernelOS::fileDelete(const char* path) {
   if (!sdInitialized) return false;
   
   Task* current = getCurrentTask();
@@ -921,7 +923,7 @@ bool Kernel::fileDelete(const char* path) {
   return SD.remove(path);
 }
 
-bool Kernel::fileExists(const char* path) {
+bool KernelOS::fileExists(const char* path) {
   if (!sdInitialized) return false;
   
   Task* current = getCurrentTask();
@@ -930,7 +932,7 @@ bool Kernel::fileExists(const char* path) {
   return SD.exists(path);
 }
 
-size_t Kernel::fileSize(int handle) {
+size_t KernelOS::fileSize(int handle) {
   if (handle < 0 || handle >= MAX_FILE_HANDLES) return 0;
   if (!fileHandles[handle].inUse) return 0;
   if (fileHandles[handle].ownerTaskId != currentTaskId) return 0;
@@ -942,7 +944,7 @@ size_t Kernel::fileSize(int handle) {
 // DIRECTORY OPERATIONS
 // ============================================================================
 
-int Kernel::dirOpen(const char* path) {
+int KernelOS::dirOpen(const char* path) {
   if (!sdInitialized) return SYS_ERR_IO_ERROR;
   
   Task* current = getCurrentTask();
@@ -970,7 +972,7 @@ int Kernel::dirOpen(const char* path) {
   return handle;
 }
 
-int Kernel::dirClose(int handle) {
+int KernelOS::dirClose(int handle) {
   if (handle < 0 || handle >= MAX_DIR_HANDLES) return SYS_ERR_INVALID_PARAM;
   if (!dirHandles[handle].inUse) return SYS_ERR_INVALID_PARAM;
   if (dirHandles[handle].ownerTaskId != currentTaskId) return SYS_ERR_PERMISSION;
@@ -981,7 +983,7 @@ int Kernel::dirClose(int handle) {
   return SYS_OK;
 }
 
-bool Kernel::dirRead(int handle, DirEntry* entry) {
+bool KernelOS::dirRead(int handle, DirEntry* entry) {
   if (handle < 0 || handle >= MAX_DIR_HANDLES) return false;
   if (!dirHandles[handle].inUse) return false;
   if (dirHandles[handle].ownerTaskId != currentTaskId) return false;
@@ -1001,7 +1003,7 @@ bool Kernel::dirRead(int handle, DirEntry* entry) {
   return true;
 }
 
-bool Kernel::dirCreate(const char* path) {
+bool KernelOS::dirCreate(const char* path) {
   if (!sdInitialized) return false;
   
   Task* current = getCurrentTask();
@@ -1010,7 +1012,7 @@ bool Kernel::dirCreate(const char* path) {
   return SD.mkdir(path);
 }
 
-bool Kernel::dirRemove(const char* path) {
+bool KernelOS::dirRemove(const char* path) {
   if (!sdInitialized) return false;
   
   Task* current = getCurrentTask();
@@ -1019,7 +1021,7 @@ bool Kernel::dirRemove(const char* path) {
   return SD.rmdir(path);
 }
 
-void Kernel::dirRewind(int handle) {
+void KernelOS::dirRewind(int handle) {
   if (handle < 0 || handle >= MAX_DIR_HANDLES) return;
   if (!dirHandles[handle].inUse) return;
   if (dirHandles[handle].ownerTaskId != currentTaskId) return;
@@ -1031,7 +1033,7 @@ void Kernel::dirRewind(int handle) {
 // SYSTEM CALLS
 // ============================================================================
 
-int Kernel::syscall(SyscallType type, void* arg1, void* arg2, void* arg3, void* arg4) {
+int KernelOS::syscall(SyscallType type, void* arg1, void* arg2, void* arg3, void* arg4) {
   switch (type) {
     // File operations
     case SYS_FILE_OPEN:
@@ -1143,27 +1145,27 @@ int Kernel::syscall(SyscallType type, void* arg1, void* arg2, void* arg3, void* 
 // UTILITY FUNCTIONS
 // ============================================================================
 
-void Kernel::print(const char* message) {
+void KernelOS::print(const char* message) {
   Serial.print(F("["));
   Serial.print(getCurrentTask()->name);
   Serial.print(F("] "));
   Serial.println(message);
 }
 
-void Kernel::debug(const char* message) {
+void KernelOS::debug(const char* message) {
   Serial.print(F("[DEBUG] "));
   Serial.println(message);
 }
 
-uint32_t Kernel::uptime() {
+uint32_t KernelOS::uptime() {
   return millis() - bootTime;
 }
 
-int Kernel::getCurrentTaskId() {
+int KernelOS::getCurrentTaskId() {
   return currentTaskId;
 }
 
-void Kernel::printTaskList() {
+void KernelOS::printTaskList() {
   Serial.println(F("\n=== Task List ==="));
   Serial.println(F("ID  Name            State      Memory   LastYield"));
   Serial.println(F("--- --------------- ---------- -------- ---------"));
@@ -1197,7 +1199,7 @@ void Kernel::printTaskList() {
   Serial.println();
 }
 
-void Kernel::printMemoryInfo() {
+void KernelOS::printMemoryInfo() {
   Serial.println(F("\n=== Memory Info ==="));
   Serial.print(F("Total heap:     "));
   Serial.print(KERNEL_HEAP_SIZE);

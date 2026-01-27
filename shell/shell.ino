@@ -1,8 +1,8 @@
 /*
   Shell Application - Full Featured with Directory Support
 */
-
-#include "kernel.h"
+//MAIN FILE
+#include "kernelOS.h"
 
 // Shell state structure
 struct ShellState {
@@ -11,6 +11,21 @@ struct ShellState {
   int cmdLen;
 };
 
+//pre define function
+void processCommand(const char* cmdLine, char* currentDir);
+
+void printPrompt(const char* currentDir) {
+  Serial.print(F("shell:"));
+  Serial.print(currentDir);
+  Serial.print(F("$ "));
+}
+
+void printPromptV2(const char* currentDir)
+{
+  //something
+}
+
+//original function that is based on the serial monitor
 void shellTask() {
   // Allocate shell state through kernel heap
   ShellState* state = (ShellState*)OS::malloc(sizeof(ShellState));
@@ -18,13 +33,14 @@ void shellTask() {
     OS::print("FATAL: Cannot allocate shell state");
     return;
   }
+
   
   // Initialize state
   strcpy(state->currentDir, "/");
   state->commandBuffer[0] = '\0';
   state->cmdLen = 0;
-  
   // Print initial prompt
+  
   printPrompt(state->currentDir);
   
   // This function should never return - it's a continuous loop
@@ -59,12 +75,6 @@ void shellTask() {
   
   // Never reached, but good practice
   OS::free(state);
-}
-
-void printPrompt(const char* currentDir) {
-  Serial.print(F("shell:"));
-  Serial.print(currentDir);
-  Serial.print(F("$ "));
 }
 
 void resolvePath(const char* path, const char* currentDir, char* output, size_t outputSize) {
@@ -102,80 +112,7 @@ void resolvePath(const char* path, const char* currentDir, char* output, size_t 
     }
     strncat(output, path, outputSize - strlen(output) - 1);
   }
-}
 
-void processCommand(const char* cmdLine, char* currentDir) {
-  // Skip leading whitespace
-  while (*cmdLine == ' ') cmdLine++;
-  if (*cmdLine == '\0') return;
-  
-  // Parse command and arguments
-  char cmd[64] = {0};
-  char args[192] = {0};
-  
-  const char* space = strchr(cmdLine, ' ');
-  if (space) {
-    size_t cmdLen = space - cmdLine;
-    if (cmdLen >= sizeof(cmd)) cmdLen = sizeof(cmd) - 1;
-    strncpy(cmd, cmdLine, cmdLen);
-    cmd[cmdLen] = '\0';
-    
-    // Copy args, skipping whitespace
-    space++;
-    while (*space == ' ') space++;
-    strncpy(args, space, sizeof(args) - 1);
-    args[sizeof(args) - 1] = '\0';
-  } else {
-    strncpy(cmd, cmdLine, sizeof(cmd) - 1);
-    cmd[sizeof(cmd) - 1] = '\0';
-  }
-  
-  // Execute commands
-  if (strcmp(cmd, "help") == 0) {
-    cmdHelp();
-  } else if (strcmp(cmd, "ls") == 0) {
-    cmdLs(args, currentDir);
-  } else if (strcmp(cmd, "cd") == 0) {
-    cmdCd(args, currentDir);
-  } else if (strcmp(cmd, "pwd") == 0) {
-    cmdPwd(currentDir);
-  } else if (strcmp(cmd, "cat") == 0) {
-    cmdCat(args, currentDir);
-  } else if (strcmp(cmd, "rm") == 0) {
-    cmdRm(args, currentDir);
-  } else if (strcmp(cmd, "touch") == 0) {
-    cmdTouch(args, currentDir);
-  } else if (strcmp(cmd, "mkdir") == 0) {
-    cmdMkdir(args, currentDir);
-  } else if (strcmp(cmd, "rmdir") == 0) {
-    cmdRmdir(args, currentDir);
-  } else if (strcmp(cmd, "echo") == 0) {
-    cmdEcho(cmdLine, currentDir);
-  } else if (strcmp(cmd, "grep") == 0) {
-    cmdGrep(cmdLine, currentDir);
-  } else if (strcmp(cmd, "mv") == 0) {
-    cmdMv(args, currentDir);
-  } else if (strcmp(cmd, "cp") == 0) {
-    cmdCp(args, currentDir);
-  } else if (strcmp(cmd, "ps") == 0) {
-    Kernel::printTaskList();
-  } else if (strcmp(cmd, "meminfo") == 0) {
-    Kernel::printMemoryInfo();
-  } else if (strcmp(cmd, "compact") == 0) {
-    cmdCompact();
-  } else if (strcmp(cmd, "uptime") == 0) {
-    cmdUptime();
-  } else if (strcmp(cmd, "clear") == 0) {
-  cmdClear();
-  } else if (strcmp(cmd, "edit") == 0) {
-    cmdEdit(args, currentDir);
-  }  else if (strcmp(cmd, "hwinfo") == 0) {
-    cmdHwinfo();
-  } else {
-    Serial.print(F("Unknown command: "));
-    Serial.println(cmd);
-    Serial.println(F("Type 'help' for available commands"));
-  }
 }
 
 void cmdHelp() {
@@ -520,7 +457,7 @@ void cmdGrep(const char* fullCmd, const char* currentDir) {
           
           linePos = 0;
         }
-      } else if (linePos < sizeof(line) - 1) {
+      } else if ((unsigned int)linePos < sizeof(line) - 1) {
         line[linePos++] = c;
       }
     }
@@ -720,7 +657,7 @@ void cmdEdit(const char* filename, const char* currentDir) {
   }
   
   // Allocate editor buffer on heap instead of stack
-  #define MAX_LINES 200
+  #define MAX_LINES 20
   char (*lines)[128] = (char (*)[128])OS::malloc(MAX_LINES * 128);
   if (!lines) {
     Serial.println(F("Error: Out of memory"));
@@ -1089,7 +1026,7 @@ void cmdHwinfo() {
   #endif
   
   Serial.print(F("Clock: "));
-  Serial.print(F_CPU / 1000000);
+  Serial.print((uint32_t)SystemCoreClock / 1000000);
   Serial.println(F(" MHz"));
   
   Serial.print(F("Kernel heap: "));
@@ -1102,28 +1039,104 @@ void cmdHwinfo() {
   Serial.println();
 }
 
+void processCommand(const char* cmdLine, char* currentDir) {
+  // Skip leading whitespace
+  while (*cmdLine == ' ') cmdLine++;
+  if (*cmdLine == '\0') return;
+  
+  // Parse command and arguments
+  char cmd[64] = {0};
+  char args[192] = {0};
+  
+  const char* space = strchr(cmdLine, ' ');
+  if (space) {
+    size_t cmdLen = space - cmdLine;
+    if (cmdLen >= sizeof(cmd)) cmdLen = sizeof(cmd) - 1;
+    strncpy(cmd, cmdLine, cmdLen);
+    cmd[cmdLen] = '\0';
+    
+    // Copy args, skipping whitespace
+    space++;
+    while (*space == ' ') space++;
+    strncpy(args, space, sizeof(args) - 1);
+    args[sizeof(args) - 1] = '\0';
+  } else {
+    strncpy(cmd, cmdLine, sizeof(cmd) - 1);
+    cmd[sizeof(cmd) - 1] = '\0';
+  }
+  
+  // Execute commands
+  if (strcmp(cmd, "help") == 0) {
+    cmdHelp();
+  } else if (strcmp(cmd, "ls") == 0) {
+    cmdLs(args, currentDir);
+  } else if (strcmp(cmd, "cd") == 0) {
+    cmdCd(args, currentDir);
+  } else if (strcmp(cmd, "pwd") == 0) {
+    cmdPwd(currentDir);
+  } else if (strcmp(cmd, "cat") == 0) {
+    cmdCat(args, currentDir);
+  } else if (strcmp(cmd, "rm") == 0) {
+    cmdRm(args, currentDir);
+  } else if (strcmp(cmd, "touch") == 0) {
+    cmdTouch(args, currentDir);
+  } else if (strcmp(cmd, "mkdir") == 0) {
+    cmdMkdir(args, currentDir);
+  } else if (strcmp(cmd, "rmdir") == 0) {
+    cmdRmdir(args, currentDir);
+  } else if (strcmp(cmd, "echo") == 0) {
+    cmdEcho(cmdLine, currentDir);
+  } else if (strcmp(cmd, "grep") == 0) {
+    cmdGrep(cmdLine, currentDir);
+  } else if (strcmp(cmd, "mv") == 0) {
+    cmdMv(args, currentDir);
+  } else if (strcmp(cmd, "cp") == 0) {
+    cmdCp(args, currentDir);
+  } else if (strcmp(cmd, "ps") == 0) {
+    KernelOS::printTaskList();
+  } else if (strcmp(cmd, "meminfo") == 0) {
+    KernelOS::printMemoryInfo();
+  } else if (strcmp(cmd, "compact") == 0) {
+    cmdCompact();
+  } else if (strcmp(cmd, "uptime") == 0) {
+    cmdUptime();
+  } else if (strcmp(cmd, "clear") == 0) {
+  cmdClear();
+  } else if (strcmp(cmd, "edit") == 0) {
+    cmdEdit(args, currentDir);
+  }  else if (strcmp(cmd, "hwinfo") == 0) {
+    cmdHwinfo();
+  } else {
+    Serial.print(F("Unknown command: "));
+    Serial.println(cmd);
+    Serial.println(F("Type 'help' for available commands"));
+  }
+}
+
+
 // ============================================================================
 // MAIN PROGRAM
 // ============================================================================
 
 void setup() {
+  Wire.begin();
   // Initialize kernel
-  if (!Kernel::init()) {
+  if (!KernelOS::init()) {
     Serial.println(F("FATAL: Kernel init failed"));
     while(1);
   }
   
   // Create shell task
-  int shellTaskId = Kernel::createTask("shell", shellTask);
+  int shellTaskId = KernelOS::createTask("shell", shellTask);
   if (shellTaskId < 0) {
-    Kernel::panic("Failed to create shell task");
+    KernelOS::panic("Failed to create shell task");
   }
   
   Serial.println(F("Shell ready. Type 'help' for commands.\n"));
 }
 
 void loop() {
-  Kernel::schedule();
+  KernelOS::schedule();
   delay(1);
 }
 

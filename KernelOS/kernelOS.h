@@ -10,14 +10,15 @@
   - Stack traces for panic debugging
   - Fully backward compatible with v2.0
 */
+//KERNELOS.h FILE
+#ifndef KERNELOS_H
+#define KERNELOS_H
 
-#ifndef KERNEL_H
-#define KERNEL_H
-
-#include <Arduino.h>
+// #include <Arduino.h>
+#include<Arduino.h>
 #include <SD.h>
-#include <Wire.h>
 #include <SPI.h>
+#include <Wire.h>
 
 // ============================================================================
 // SYSTEM CALL DEFINITIONS
@@ -107,6 +108,7 @@ enum SyscallResult {
   SYS_ERR_WOULD_BLOCK = -8
 };
 
+
 // Configuration
 #define MAX_TASKS 8
 #define MAX_FILE_HANDLES 16
@@ -120,7 +122,7 @@ enum SyscallResult {
 
 // Heap size based on board
 #ifdef ARDUINO_GIGA
-  #define KERNEL_HEAP_SIZE (512 * 1024)  // 512KB for Giga R1 (STM32H747, 1MB RAM)
+  #define KERNEL_HEAP_SIZE (256 * 1024)  // 512KB for Giga R1 (STM32H747, 1MB RAM)
 #elif defined(ARDUINO_ARCH_RP2040)
   #define KERNEL_HEAP_SIZE (128 * 1024)  // 128KB for RP2040 (264KB total RAM)
 #elif defined(ARDUINO_AVR_MEGA2560)
@@ -285,7 +287,7 @@ struct SPITransaction {
 // KERNEL CLASS
 // ============================================================================
 
-class Kernel {
+class KernelOS {
 private:
   // Task management
   static Task tasks[MAX_TASKS];
@@ -426,176 +428,176 @@ public:
 namespace OS {
   // File operations (backward compatible)
   inline int open(const char* path, bool write = false) {
-    return Kernel::fileOpen(path, write);
+    return KernelOS::fileOpen(path, write);
   }
   
   inline int close(int fd) {
-    return Kernel::fileClose(fd);
+    return KernelOS::fileClose(fd);
   }
   
   inline int read(int fd, void* buffer, size_t size) {
-    return Kernel::fileRead(fd, buffer, size);
+    return KernelOS::fileRead(fd, buffer, size);
   }
   
   inline int write(int fd, const void* buffer, size_t size) {
-    return Kernel::fileWrite(fd, buffer, size);
+    return KernelOS::fileWrite(fd, buffer, size);
   }
   
   inline bool remove(const char* path) {
-    return Kernel::fileDelete(path);
+    return KernelOS::fileDelete(path);
   }
   
   inline bool exists(const char* path) {
-    return Kernel::fileExists(path);
+    return KernelOS::fileExists(path);
   }
   
   inline size_t filesize(int fd) {
-    return Kernel::fileSize(fd);
+    return KernelOS::fileSize(fd);
   }
   
   // Directory operations (backward compatible)
   inline int opendir(const char* path) {
-    return Kernel::dirOpen(path);
+    return KernelOS::dirOpen(path);
   }
   
   inline int closedir(int dh) {
-    return Kernel::dirClose(dh);
+    return KernelOS::dirClose(dh);
   }
   
   inline bool readdir(int dh, DirEntry* entry) {
-    return Kernel::dirRead(dh, entry);
+    return KernelOS::dirRead(dh, entry);
   }
   
   inline bool mkdir(const char* path) {
-    return Kernel::dirCreate(path);
+    return KernelOS::dirCreate(path);
   }
   
   inline bool rmdir(const char* path) {
-    return Kernel::dirRemove(path);
+    return KernelOS::dirRemove(path);
   }
   
   inline void rewinddir(int dh) {
-    Kernel::dirRewind(dh);
+    KernelOS::dirRewind(dh);
   }
   
   // Memory operations (backward compatible)
   inline void* malloc(size_t size) {
-    return Kernel::memAlloc(size);
+    return KernelOS::memAlloc(size);
   }
   
   inline void free(void* ptr) {
-    Kernel::memFree(ptr);
+    KernelOS::memFree(ptr);
   }
   
   inline void compact() {
-    Kernel::memCompact();
+    KernelOS::memCompact();
   }
   
   // Task operations (backward compatible)
   inline void yield() {
-    Kernel::yield();
+    KernelOS::yield();
   }
   
   inline void sleep(uint32_t ms) {
-    Kernel::sleep(ms);
+    KernelOS::sleep(ms);
   }
   
   inline int getpid() {
-    return Kernel::getCurrentTaskId();
+    return KernelOS::getCurrentTaskId();
   }
   
   // IPC operations (NEW)
   inline int send(int toTaskId, const void* data, size_t length) {
-    return Kernel::ipcSend(toTaskId, data, length);
+    return KernelOS::ipcSend(toTaskId, data, length);
   }
   
   inline int receive(void* buffer, size_t maxLength, int* fromTaskId = nullptr) {
-    return Kernel::ipcReceive(buffer, maxLength, fromTaskId);
+    return KernelOS::ipcReceive(buffer, maxLength, fromTaskId);
   }
   
   inline int poll() {
-    return Kernel::ipcPoll();
+    return KernelOS::ipcPoll();
   }
   
   // Semaphore operations (NEW)
   inline int semCreate(int initialValue, int maxValue = 1, const char* name = nullptr) {
-    return Kernel::semCreate(initialValue, maxValue, name);
+    return KernelOS::semCreate(initialValue, maxValue, name);
   }
   
   inline int semWait(int semId, uint32_t timeoutMs = 0) {
-    return Kernel::semWait(semId, timeoutMs);
+    return KernelOS::semWait(semId, timeoutMs);
   }
   
   inline int semPost(int semId) {
-    return Kernel::semPost(semId);
+    return KernelOS::semPost(semId);
   }
   
   inline int semDestroy(int semId) {
-    return Kernel::semDestroy(semId);
+    return KernelOS::semDestroy(semId);
   }
   
   // GPIO operations (NEW)
   inline int pinMode(int pin, int mode) {
-    return Kernel::gpioSetMode(pin, mode);
+    return KernelOS::gpioSetMode(pin, mode);
   }
   
   inline int digitalWrite(int pin, int value) {
-    return Kernel::gpioWrite(pin, value);
+    return KernelOS::gpioWrite(pin, value);
   }
   
   inline int digitalRead(int pin) {
-    return Kernel::gpioRead(pin);
+    return KernelOS::gpioRead(pin);
   }
   
   inline int analogRead(int pin) {
-    return Kernel::gpioAnalogRead(pin);
+    return KernelOS::gpioAnalogRead(pin);
   }
   
   inline int analogWrite(int pin, int value) {
-    return Kernel::gpioAnalogWrite(pin, value);
+    return KernelOS::gpioAnalogWrite(pin, value);
   }
   
   // I2C operations (NEW)
   inline int i2cBegin(uint8_t address = 0) {
-    return Kernel::i2cBegin(address);
+    return KernelOS::i2cBegin(address);
   }
   
   inline int i2cWrite(uint8_t address, const uint8_t* data, size_t length) {
-    return Kernel::i2cWrite(address, data, length);
+    return KernelOS::i2cWrite(address, data, length);
   }
   
   inline int i2cRead(uint8_t address, uint8_t* buffer, size_t length) {
-    return Kernel::i2cRead(address, buffer, length);
+    return KernelOS::i2cRead(address, buffer, length);
   }
   
   inline int i2cRequest(uint8_t address, size_t quantity) {
-    return Kernel::i2cRequest(address, quantity);
+    return KernelOS::i2cRequest(address, quantity);
   }
   
   // SPI operations (NEW)
   inline int spiBegin() {
-    return Kernel::spiBegin();
+    return KernelOS::spiBegin();
   }
   
   inline int spiTransfer(uint8_t* txData, uint8_t* rxData, size_t length) {
-    return Kernel::spiTransfer(txData, rxData, length);
+    return KernelOS::spiTransfer(txData, rxData, length);
   }
   
   inline int spiEnd() {
-    return Kernel::spiEnd();
+    return KernelOS::spiEnd();
   }
   
   // System operations (backward compatible)
   inline void print(const char* message) {
-    Kernel::print(message);
+    KernelOS::print(message);
   }
   
   inline void debug(const char* message) {
-    Kernel::debug(message);
+    KernelOS::debug(message);
   }
   
   inline uint32_t uptime() {
-    return Kernel::uptime();
+    return KernelOS::uptime();
   }
 }
 
