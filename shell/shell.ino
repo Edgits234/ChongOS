@@ -1,4 +1,3 @@
-
 #include <kernelOS.h>
  
 
@@ -6,6 +5,8 @@
   Shell Application - Full Featured with Directory Support
 */
 
+// Global text display for kernel debug output
+Text* globalDisplayText = nullptr;
 
 // Shell state structure
 struct ShellState {
@@ -51,57 +52,41 @@ void killShell(void* taskStatePtr)
 
 //function that actually works with the screen
 void shellTask() {
+    ShellState* state = new ShellState();
+    strcpy(state->currentDir, "/");
+    state->cmdLen = 0;
+    state->terminal = &ui.addTerminal("terminal", "middle", "middle", 200, 200, color(0, 0, 0), color(0, 255, 0));
 
-  static uint8_t taskState = 1;//this dictates if we are currently initializing (1), running (2), or terminating (3)
-  static ShellState* state = (ShellState*)OS::malloc(sizeof(ShellState));// Allocate shell state through kernel heap
+    // Set global display for kernel output
+    globalDisplayText = &state->terminal->text;
+    KernelOS::setDisplayOutput(globalDisplayText);
 
-  while(true)
-  {
+    printPrompt(state->currentDir, state->terminal->text);
 
-    //are we initializing this task for the first time
-    if(taskState == 1/*Initializing*/)
-    {
-        
-        
-        // Initialize state
-        strcpy(state->currentDir, "/");
-        state->cmdLen = 0;
-        state->terminal = &ui.addTerminal("terminal", "middle", "middle", 200, 200, color(0, 0, 0), color(0, 255, 0));//create a terminal in the main ui
-
-        state->terminal->deathCallbackInput = &taskState;
-        state->terminal->deathCallback = killShell;
-
-        // Print initial prompt
-        printPrompt(state->currentDir, state->terminal->text);
-
-        //set the state to running
-        taskState = 2/*Running*/;
-    }
-
-    //if we are currently running the terminal/shell task
-    if(taskState == 2/*Running*/)
-    {
-        //check if we got a new command
-        if(state->terminal->cmdAvailable)
-        {
-            
-            state->terminal->cmdAvailable = 0;//put back the available 
+    // This is now the thread's infinite loop
+    while(true) {
+        if(state->terminal->cmdAvailable) {
+            state->terminal->cmdAvailable = 0;
             processCommand(state->terminal->cmdBuffer, state->currentDir, state->terminal->text);
             printPrompt(state->currentDir, state->terminal->text);
         }
-    }
-    
-    
-    // Never reached, but good practice
-    if(taskState == 3/*Terminated*/)
-    {
-        //free the variables from memory (we aren,t using them anymore)
-        OS::free(state);
-        break;
+
+        // Record that this task is still alive
+        KernelOS::recordTaskActivity(KernelOS::getCurrentTaskId());
+
+        // IMPORTANT: Don't busy-wait!
+        rtos::ThisThread::sleep_for(std::chrono::milliseconds(10));
     }
 
-    //update the uis (temporary, just wanna see if it fixes my bug)
-    //draw on the screen buffer
+    // Thread cleanup (if it ever exits)
+    delete state;
+}
+
+//function to update the ui and the screen
+void updateDisplayTask()
+{
+  while(true) {
+    KernelOS::getDisplayMutex().lock();
     ui.update();
 
     //don't render out to the  if we are waiting of keyboard input
@@ -109,31 +94,13 @@ void shellTask() {
     {
         displayFrameBuffer();//render on the screen
     }
+    KernelOS::getDisplayMutex().unlock();
 
+    // Record that this task is still alive
+    KernelOS::recordTaskActivity(KernelOS::getCurrentTaskId());
 
+    rtos::ThisThread::sleep_for(std::chrono::milliseconds(16));  // ~60 FPS
   }
-
-  //kill the task
-  KernelOS::killTask(KernelOS::getCurrentTaskId());
-
-  
-//   OS::temporaryDebugYield();//temporary debug yield function to keep watchdog from going crazy
-}
-
-//function to update the ui and the screen
-void updateDisplayTask()
-{
-  println("UPDATING THE DISPLAY");
-  //draw on the screen buffer
-  ui.update();
-
-  //don't render out to the  if we are waiting of keyboard input
-  if(!kbd.Available)
-  {
-    displayFrameBuffer();//render on the screen
-  }
-
-  OS::temporaryDebugYield();//temporary debug yield function to keep watchdog from going crazy
 }
 
 void resolvePath(const char* path, const char* currentDir, char* output, size_t outputSize) {
@@ -443,7 +410,7 @@ void cmdClear(Text& textToPrint) {
   textToPrint.x = 0;//reset text position (reset scroll)
   textToPrint.y = 0;//reset text position (reset scroll)
   textToPrint.println(F("================================="));
-  textToPrint.println(F("  YandereOS Shell"));
+  textToPrint.println(F("  ChongOS Shell"));
   textToPrint.println(F("=================================\n"));
 }
 
@@ -1179,6 +1146,25 @@ void processCommand(const char* cmdLine, char* currentDir, Text& t) {
   }
 }
 
+// ============================================================================
+// MONITOR TASK - Auto-recovery and health checking
+// ============================================================================
+
+void monitorTask() {
+  // Monitor task watches all other tasks for crashes/hangs
+  // If a task becomes unresponsive, it attempts recovery
+  // After 3 failed recovery attempts, triggers full system reboot
+  
+  while(true) {
+    // Let kernel do health checking
+    KernelOS::monitorTaskHealth();
+    
+    // Record that monitor is alive
+    KernelOS::recordTaskActivity(KernelOS::getCurrentTaskId());
+    
+    rtos::ThisThread::sleep_for(std::chrono::milliseconds(500));
+  }
+}
 
 // ============================================================================
 // MAIN PROGRAM
@@ -1186,12 +1172,18 @@ void processCommand(const char* cmdLine, char* currentDir, Text& t) {
 
 void setup() {
   Wire.begin();
+  // Initialize watchdog
+  Watchdog &watchdog = Watchdog::get_instance();
+  watchdog.start(5000);  // 5 second timeout
   
   // Initialize kernel
   if (!KernelOS::init()) {
     Serial.println(F("FATAL: Kernel init failed"));
     while(1);
   }
+  
+  // Create monitor task (watches for crashes and auto-recovers)
+  int monitorTaskId = KernelOS::createTask("monitor", monitorTask);
   
   // Create shell task
   int shellTaskId = KernelOS::createTask("shell", shellTask);
@@ -1203,12 +1195,13 @@ void setup() {
     KernelOS::panic("Failed to create shell task");
   }
   
-  Serial.println(F("Shell ready. Type 'help' for commands.\n"));
+  Serial.println(F("Shell ready. Type 'help' for commands."));
+  Serial.println(F("Auto-recovery monitor active.\n"));
 }
 
 void loop() {
-  KernelOS::schedule();
-  delay(1);
+  // Let Mbed's scheduler run automatically
+  rtos::ThisThread::sleep_for(osWaitForever);
 }
 
 // ============================================================================

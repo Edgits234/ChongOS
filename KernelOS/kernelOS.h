@@ -1,14 +1,6 @@
 /*
-  YandereOS Kernel - V3.5
-  A functional kernel for Arduino Giga R1 WiFi
-  
-  Features:
-  - Cooperative multitasking with watchdog timer protection
-  - Memory management with proper compaction (pointer-safe via handles)
-  - IPC (message queues, semaphores)
-  - Device Driver Interface (DDI) for GPIO, I2C, SPI
-  - Stack traces for panic debugging
-  - Fully backward compatible with v2.0
+  ChongOS Kernel - V4.0
+  Header File
 */
 //KERNELOS.h FILE
 #ifndef KERNELOS_H
@@ -19,10 +11,13 @@
 #include <SD.h>
 #include <SPI.h>
 #include <Wire.h>
+#include "mbed.h"
 
 #define UI_SETTINGS 0b100  //set a setting to disable the calling of displayFrameBuffer (this is because we want to catch up frames)
 #include <AwesomeUI.h>//include the ui manager library
 
+// Forward declare Text class for kernel debug output
+class Text;
 
 // ============================================================================
 // SYSTEM CALL DEFINITIONS
@@ -66,7 +61,7 @@ enum SyscallType {
   SYS_TASK_SLEEP,
   SYS_TASK_LIST,
   
-  // IPC operations (NEW)
+  // IPC operations 
   SYS_IPC_SEND,
   SYS_IPC_RECEIVE,
   SYS_IPC_POLL,
@@ -75,20 +70,20 @@ enum SyscallType {
   SYS_SEM_POST,
   SYS_SEM_DESTROY,
   
-  // GPIO operations (NEW)
+  // GPIO operations 
   SYS_GPIO_PINMODE,
   SYS_GPIO_WRITE,
   SYS_GPIO_READ,
   SYS_GPIO_ANALOG_READ,
   SYS_GPIO_ANALOG_WRITE,
   
-  // I2C operations (NEW)
+  // I2C operations 
   SYS_I2C_BEGIN,
   SYS_I2C_WRITE,
   SYS_I2C_READ,
   SYS_I2C_REQUEST,
   
-  // SPI operations (NEW)
+  // SPI operations 
   SYS_SPI_BEGIN,
   SYS_SPI_TRANSFER,
   SYS_SPI_END,
@@ -156,15 +151,6 @@ enum SyscallResult {
 // TASK MANAGEMENT
 // ============================================================================
 
-enum TaskState {
-  TASK_EMPTY = 0,
-  TASK_READY,
-  TASK_RUNNING,
-  TASK_SLEEPING,
-  TASK_BLOCKED,
-  TASK_ZOMBIE
-};
-
 // Stack trace entry
 struct StackFrame {
   void* returnAddress;
@@ -174,31 +160,23 @@ struct StackFrame {
 struct Task {
   int id;
   const char* name;
-  TaskState state;
   void (*entryPoint)();
-  
-  // Scheduling
-  uint32_t sleepUntil;
-  uint32_t lastRun;
-  uint32_t lastYield;  // NEW: For watchdog
-  int priority;
-  
-  // Resource tracking
-  bool fileHandles[MAX_FILE_HANDLES];
-  bool dirHandles[MAX_DIR_HANDLES];
-  size_t memoryUsed;
-  
-  // Stack trace (NEW)
-  StackFrame stackTrace[MAX_STACK_TRACE_DEPTH];
-  int stackTraceDepth;
-  
-  // Permissions
+  rtos::Thread* thread;  // Link to actual Mbed thread
+
+  // Keep all your existing permission flags
   bool canAccessSD;
   bool canAccessDisplay;
   bool canCreateTasks;
-  bool canAccessGPIO;     // NEW
-  bool canAccessI2C;      // NEW
-  bool canAccessSPI;      // NEW
+  bool canAccessGPIO;
+  bool canAccessI2C;
+  bool canAccessSPI;
+
+  // Keep resource tracking
+  bool fileHandles[MAX_FILE_HANDLES];
+  bool dirHandles[MAX_DIR_HANDLES];
+  size_t memoryUsed;
+
+  int priority;  // Keep this - pass to Thread constructor
 };
 
 // ============================================================================
@@ -209,31 +187,23 @@ struct MemoryBlock {
   size_t size;
   int ownerTaskId;
   bool inUse;
-  int handleId;  // NEW: For tracking during compaction
+  int handleId;
 };
 
 // ============================================================================
-// IPC - Message Queues (NEW)
+// IPC - Message Queues 
 // ============================================================================
 
-struct Message {
-  int fromTaskId;
-  int toTaskId;
-  uint8_t data[64];
-  size_t length;
-  uint32_t timestamp;
-  bool valid;
-};
-
-struct MessageQueue {
-  Message messages[MAX_MESSAGE_QUEUE_SIZE];
-  int head;
-  int tail;
-  int count;
-};
+// OLD: Replaced by rtos::Mail in implementation
+// struct MessageQueue {
+//   Message messages[MAX_MESSAGE_QUEUE_SIZE];
+//   int head;
+//   int tail;
+//   int count;
+// };
 
 // ============================================================================
-// IPC - Semaphores (NEW)
+// IPC - Semaphores 
 // ============================================================================
 
 struct Semaphore {
@@ -268,7 +238,7 @@ struct DirEntry {
 };
 
 // ============================================================================
-// DEVICE DRIVER INTERFACE (NEW)
+// DEVICE DRIVER INTERFACE 
 // ============================================================================
 
 // I2C transaction
@@ -301,25 +271,45 @@ private:
   // Memory management
   static uint8_t kernelHeap[KERNEL_HEAP_SIZE];
   static size_t heapUsed;
+  static rtos::Mutex heapMutex;  // Add this
   
   // File system
   static FileHandle fileHandles[MAX_FILE_HANDLES];
   static DirHandle dirHandles[MAX_DIR_HANDLES];
   static bool sdInitialized;
+  static rtos::Mutex sdMutex;
+  static rtos::Mutex displayMutex;
+  static rtos::Mutex serialMutex;
+
+  // IPC 
+  static rtos::Mail<Message, 16> mailQueues[MAX_TASKS];
+  static rtos::Semaphore* semaphores[MAX_SEMAPHORES];
+  static bool semaphoreInUse[MAX_SEMAPHORES];
+  static uint8_t mailQueueCounts[MAX_TASKS];  // Track message counts for ipcPoll()
   
-  // IPC (NEW)
-  static MessageQueue messageQueues[MAX_TASKS];
-  static Semaphore semaphores[MAX_SEMAPHORES];
+  // Thread mapping for preemptive multitasking
+  static rtos::Mutex threadMapMutex;
+  static osThreadId_t threadToTaskMap[MAX_TASKS];
   
-  // Watchdog (NEW)
+  // Watchdog 
   static bool watchdogEnabled;
   static uint32_t watchdogLastCheck;
+  
+  // Health monitoring
+  static uint32_t taskLastActivity[MAX_TASKS];
+  static uint8_t taskCrashCount[MAX_TASKS];
+  static const uint32_t TASK_TIMEOUT_MS = 5000;      // 5 seconds
+  static const uint8_t MAX_RECOVERY_ATTEMPTS = 3;    // Try 3 times before giving up
   
   // System state
   static bool initialized;
   static uint32_t bootTime;
   
+  // Display output
+  static Text* kernelDisplayOutput;
+  
   // Private methods
+  static int getCurrentTaskId();  // Get task ID of currently executing thread
   static Task* getCurrentTask();
   static Task* getTask(int taskId);
   static int allocateTaskId();
@@ -334,14 +324,19 @@ private:
   static void compactMemory();
   static MemoryBlock* getBlockHeader(void* ptr);
   
-  // Watchdog (NEW)
+  // Watchdog 
   static void checkWatchdog();
   
-  // Stack tracing (NEW)
+  // Health monitoring and auto-recovery
+  static void monitorTaskHealth();
+  static void recordTaskActivity(int taskId);
+  static bool attemptTaskRecovery(int taskId);
+  
+  // Stack tracing 
   static void captureStackTrace(Task* task);
   static void printStackTrace(Task* task);
   
-  // IPC internals (NEW)
+  // IPC internals 
   static int allocateSemaphore();
   
 public:
@@ -356,7 +351,7 @@ public:
   static void yield();
   static void sleep(uint32_t ms);
   
-  // Watchdog (NEW)
+  // Watchdog 
   static void enableWatchdog(bool enable);
   static void feedWatchdog();
   
@@ -387,31 +382,31 @@ public:
   static size_t memAvailable();
   static void memCompact();
   
-  // IPC operations (NEW)
+  // IPC operations 
   static int ipcSend(int toTaskId, const void* data, size_t length);
   static int ipcReceive(void* buffer, size_t maxLength, int* fromTaskId = nullptr);
   static int ipcPoll();  // Returns number of messages waiting
   
-  // Semaphore operations (NEW)
+  // Semaphore operations 
   static int semCreate(int initialValue, int maxValue, const char* name = nullptr);
   static int semWait(int semId, uint32_t timeoutMs = 0);
   static int semPost(int semId);
   static int semDestroy(int semId);
   
-  // GPIO operations (NEW)
+  // GPIO operations 
   static int gpioSetMode(int pin, int mode);
   static int gpioWrite(int pin, int value);
   static int gpioRead(int pin);
   static int gpioAnalogRead(int pin);
   static int gpioAnalogWrite(int pin, int value);
   
-  // I2C operations (NEW)
+  // I2C operations 
   static int i2cBegin(uint8_t address = 0);
   static int i2cWrite(uint8_t address, const uint8_t* data, size_t length);
   static int i2cRead(uint8_t address, uint8_t* buffer, size_t length);
   static int i2cRequest(uint8_t address, size_t quantity);
   
-  // SPI operations (NEW)
+  // SPI operations 
   static int spiBegin();
   static int spiTransfer(uint8_t* txData, uint8_t* rxData, size_t length);
   static int spiEnd();
@@ -426,6 +421,15 @@ public:
   static void printMemoryInfo(Text& textToPrint);
   static void printMemoryInfo();
   static void temporaryDebugYield();
+  
+  // Display output for kernel messages
+  static void setDisplayOutput(Text* display);
+  
+  // Mutex accessors for thread-safe operations
+  static rtos::Mutex& getDisplayMutex() { return displayMutex; }
+  static rtos::Mutex& getHeapMutex() { return heapMutex; }
+  static rtos::Mutex& getSDMutex() { return sdMutex; }
+  static rtos::Mutex& getSerialMutex() { return serialMutex; }
 };
 
 // ============================================================================
@@ -433,7 +437,7 @@ public:
 // ============================================================================
 
 namespace OS {
-  // File operations (backward compatible)
+  // File operations
   inline int open(const char* path, bool write = false) {
     return KernelOS::fileOpen(path, write);
   }
@@ -462,7 +466,7 @@ namespace OS {
     return KernelOS::fileSize(fd);
   }
   
-  // Directory operations (backward compatible)
+  // Directory operations 
   inline int opendir(const char* path) {
     return KernelOS::dirOpen(path);
   }
@@ -487,7 +491,7 @@ namespace OS {
     KernelOS::dirRewind(dh);
   }
   
-  // Memory operations (backward compatible)
+  // Memory operations
   inline void* malloc(size_t size) {
     return KernelOS::memAlloc(size);
   }
@@ -500,7 +504,7 @@ namespace OS {
     KernelOS::memCompact();
   }
   
-  // Task operations (backward compatible)
+  // Task operations
   inline void yield() {
     KernelOS::yield();
   }
@@ -513,7 +517,7 @@ namespace OS {
     return KernelOS::getCurrentTaskId();
   }
   
-  // IPC operations (NEW)
+  // IPC operations 
   inline int send(int toTaskId, const void* data, size_t length) {
     return KernelOS::ipcSend(toTaskId, data, length);
   }
@@ -526,7 +530,7 @@ namespace OS {
     return KernelOS::ipcPoll();
   }
   
-  // Semaphore operations (NEW)
+  // Semaphore operations 
   inline int semCreate(int initialValue, int maxValue = 1, const char* name = nullptr) {
     return KernelOS::semCreate(initialValue, maxValue, name);
   }
@@ -543,7 +547,7 @@ namespace OS {
     return KernelOS::semDestroy(semId);
   }
   
-  // GPIO operations (NEW)
+  // GPIO operations 
   inline int pinMode(int pin, int mode) {
     return KernelOS::gpioSetMode(pin, mode);
   }
@@ -564,7 +568,7 @@ namespace OS {
     return KernelOS::gpioAnalogWrite(pin, value);
   }
   
-  // I2C operations (NEW)
+  // I2C operations 
   inline int i2cBegin(uint8_t address = 0) {
     return KernelOS::i2cBegin(address);
   }
@@ -581,7 +585,7 @@ namespace OS {
     return KernelOS::i2cRequest(address, quantity);
   }
   
-  // SPI operations (NEW)
+  // SPI operations 
   inline int spiBegin() {
     return KernelOS::spiBegin();
   }
@@ -594,7 +598,7 @@ namespace OS {
     return KernelOS::spiEnd();
   }
   
-  // System operations (backward compatible)
+  // System operations
   inline void print(const char* message) {
     KernelOS::print(message);
   }

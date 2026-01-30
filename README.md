@@ -1,1 +1,3 @@
-# YandereOS
+# ChongOS
+
+A pretty cool OS
