@@ -6,17 +6,6 @@
 #ifndef UI_SETTINGS
   #define UI_SETTINGS 0b00000000
 #endif
-// At the top of AwesomeUI.h, add:
-extern char *__brkval;
-extern char __heap_start;
-
-int freeMemory() {
-  char top;
-  return &top - (__brkval ? __brkval : &__heap_start);
-}
-
-int stackDepth = 0;
-int maxStackDepth = 0;
 
 // Pins for the DFR0665 Display
 #define TFT_CS 10
@@ -269,8 +258,8 @@ class Arraya
 };
 
 
-int setPos(int pos, uint16_t len, int screenSize, bool vertical){return pos;}
-int setPos(const char* pos, uint16_t len, int screenSize, bool vertical)
+inline int setPos(int pos, uint16_t len, int screenSize, bool vertical){return pos;}
+inline int setPos(const char* pos, uint16_t len, int screenSize, bool vertical)
 {
   // //make an array for the signs (+, -, *, /)
   // byte signs[9] = {0,0,0,0,0,0,0,0,0};
@@ -305,10 +294,10 @@ int setPos(const char* pos, uint16_t len, int screenSize, bool vertical)
   return 0;
 }
 
-int16_t globalx = 0;
-int16_t globaly = 0;
-bool cursorClicky = false;
-bool touched()
+inline int16_t globalx = 0;
+inline int16_t globaly = 0;
+inline bool cursorClicky = false;
+inline bool touched()
 {
   #if WOKWI_SIM
     return ctp.touched();
@@ -361,7 +350,7 @@ bool touched()
   #endif
 }
 
-Point getPoint()
+inline Point getPoint()
 {
   #if WOKWI_SIM
     TS_Point p = ctp.getPoint(); // Get the touch point
@@ -377,11 +366,11 @@ Point getPoint()
   #endif
 }
 
-int16_t gvx = 0;
-int16_t gvy = 0;
-int16_t gvw = SCREEN_WIDTH;
-int16_t gvh = SCREEN_HEIGHT;
-void setTestViewport(int16_t x, int16_t y, int16_t w, int16_t h)
+inline int16_t gvx = 0;
+inline int16_t gvy = 0;
+inline int16_t gvw = SCREEN_WIDTH;
+inline int16_t gvh = SCREEN_HEIGHT;
+inline void setTestViewport(int16_t x, int16_t y, int16_t w, int16_t h)
 {
   gvx = tft.vx;
   gvy = tft.vy;
@@ -391,14 +380,14 @@ void setTestViewport(int16_t x, int16_t y, int16_t w, int16_t h)
   tft.setViewport(x, y, w, h);
 }
 
-void cancelTestViewport()
+inline void cancelTestViewport()
 {
   tft.setViewport(gvx, gvy, gvw, gvh);
 }
 
 
 // input two rectangles and get if they touch or not
-bool collide(int x1, int y1, int w1, int h1, int x2, int y2, int w2, int h2)
+inline bool collide(int x1, int y1, int w1, int h1, int x2, int y2, int w2, int h2)
 {
   //returns false if any of the length of the rectangles are negative
   if(w1 < 0 || h1 < 0 || w2 < 0 || h2 < 0)
@@ -451,7 +440,7 @@ bool collide(int x1, int y1, int w1, int h1, int x2, int y2, int w2, int h2)
 // }
 
 //takes in pairs of 2 rectangles. VERY CURSED gonna regret that but meh whatever
-RectangleParams combineRectangles16(RectangleParams r1, RectangleParams r2)
+inline RectangleParams combineRectangles16(RectangleParams r1, RectangleParams r2)
 {
   int16_t x1 = max(r1.x, r2.x);
   int16_t y1 = max(r1.y, r2.y);
@@ -534,11 +523,11 @@ class UI;
 
 // In AwesomeUI.h, add this BEFORE the UI class definition (around line 300):
 
-UI* g_pathBuffer[10];
+inline UI* g_pathBuffer[10];
 
 //global::UI 
 //class to manage the UI array, (updating ui, input handling for ui, acts as the middle man between the ui elements and the inputs of the user)
-uint8_t enabletouch = 1;
+inline uint8_t enabletouch = 1;
 class UI 
 {
   public:
@@ -793,11 +782,12 @@ class UI
       {
         delete uiPointerArray.at(i);
         uiPointerArray.remove(i); // don't forget to remove it from the array too
+        return;//return early no need to continue checking
       }
     }
     
     // // if we didn't find a corresponding id
-    println("ERROR line ",__LINE__," couldn't find the pointer in the list of ui elements");
+    println("ERROR line ",__LINE__," in ",__FILE__," couldn't find the pointer in the list of ui elements");
   }
 
   //UI::select
@@ -997,11 +987,18 @@ class UI
     // we go through all of the ui elements
     for (unsigned int i = 0; i < staticSize; i++)
     {
-      // then we delete
-      delete uiPointerArray.at(0);
-      uiPointerArray.remove(0); // don't forget to remove from the array too
-
-      return;
+      
+      if(uiPointerArray.at(0) == nullptr)
+      {
+        println("ERROR line ",__LINE__," in ",__FILE__,", nullptr detected in the uiPointerArray");
+        while(true);
+      }else
+      {
+        
+        // then we delete
+        delete uiPointerArray.at(0);
+        uiPointerArray.remove(0); // don't forget to remove from the array too
+      }
     }
   }
 
@@ -1015,8 +1012,6 @@ class UI
     //testprintln("touchUpdateAddition");
     
     touchUpdateAddition();
-
-    //testprintln("handling input based on recieved point, now updating elements");
 
     //go through all of the possible z_indexs
     for(int j = INT8_MIN; j <= INT8_MAX; j++)
@@ -1050,8 +1045,6 @@ class UI
         }
       }
     }  
-  
-    //testprintln("finnished handling elements, displaying the frame buffer");
 
     //show cursor on GIGA (because we are using the keyboard)
     #if !WOKWI_SIM
@@ -1099,13 +1092,14 @@ class UIManager : public UI
   //UIManager::begin
   void begin()
   {
-    Serial.begin(9600);
-    delay(3000);
-    Serial.println("Starting...");
-    Serial.println("DO NOT FUCKING FORGET ABOUT SAVING CHANGES TO THE ONLINE VERSION OF WOKWI !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+    // Serial.begin(9600);
+    // delay(3000);
+    // Serial.println("Starting...");
+    // Serial.println("DO NOT FUCKING FORGET ABOUT SAVING CHANGES TO THE ONLINE VERSION OF WOKWI !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
     tft.begin();
     kbd.begin();
 
+    //fill with base color or smth
     tft.fillScreen(basecolor);
 
     #if WOKWI_SIM
@@ -1180,7 +1174,7 @@ class UIManager : public UI
           }
 
           handleInput(p, holding, focus);
-          
+
           if(touchInput != nullptr)
           {
             (*touchInput)(p, holding, focus);
@@ -1192,11 +1186,8 @@ class UIManager : public UI
 
       if(millis() - lastTouch > 75 && focus == 1)
       {
-        // testprintln("calling handle input for all uis");
-        //println("handling input");
         handleInput({0,0}, false, 0);
 
-        // testprintln("success calling handle input for all uis ending function");
         // disable all of the button thingy idk
         holding = 0;
         focus = 0;//undo the focus
@@ -1214,11 +1205,11 @@ class UIManager : public UI
 
     if(selected == 1)
     {
-      if(kbd.keys.lctrl == 1 && kbd.keys.lshift == 0 && kbd.keys.lalt == 0 && kbd.lastKey == 0 && kbd.currKey == KEY_T && kbdShortcuts != 1)
-      {
-        kbdShortcuts = 1;//set to one so we ignore repeats
-        addTerminal("terminal1", "middle", "middle", 200, 200, color(0,0,0), color(0, 255, 0));
-      }
+      // if(kbd.keys.lctrl == 1 && kbd.keys.lshift == 0 && kbd.keys.lalt == 0 && kbd.lastKey == 0 && kbd.currKey == KEY_T && kbdShortcuts != 1)
+      // {
+      //   kbdShortcuts = 1;//set to one so we ignore repeats
+      //   addTerminal("terminal1", "middle", "middle", 200, 200, color(0,0,0), color(0, 255, 0));
+      // }
 
       if(kbd.keysClear())
       {
@@ -1240,7 +1231,7 @@ class UIManager : public UI
   }
 };
 
-UIManager ui;
+inline UIManager ui;
 
 //global::Text
 class Text : public UIelement
@@ -1415,9 +1406,15 @@ class Text : public UIelement
       h = info.h;
     }
 
-    println(text);
+    // ::println(text);
     draw();
   }
+
+  //Text::print
+  void print(){} template<typename T> void print(T input){::print(input); fixedText += input;} 
+  
+  //Text::println
+  void println(){fixedText += '\n';} template<typename T> void println(T input){::println(input); fixedText += input; fixedText += '\n';} 
 
   //Text::Text
   template <typename T1, typename T2>
@@ -1444,8 +1441,8 @@ class Text : public UIelement
   //Text::~Text
   ~Text()
   {
-    delete[] id;//remove the id that was alocated in memory for this ui element
-    println("Text destructor for ID : ",id," <- NOTICE ------------------------------------------------------------");
+    // delete[] id;//remove the id that was alocated in memory for this ui element
+    ::println("Text destructor for ID : ",id," <- NOTICE ------------------------------------------------------------");
   }
 };
 
@@ -1634,7 +1631,8 @@ class Button : public UIelement
   //Button::~Button
   ~Button()
   {
-    delete[] id;//de alocation of the id (cuz we alocated that right)
+    // delete[] id;//de alocatio
+    //n of the id (cuz we alocated that right)
     println("Button destructor for ID : ",id," <- NOTICE ------------------------------------------------------------");
   }
 };
@@ -1646,7 +1644,6 @@ class Canvas : public UIelement
 };
 
 //global::Window
-int globalUpdateDepth = 0;
 class Window : public UIelement
 {
   public:
@@ -1711,6 +1708,7 @@ class Window : public UIelement
     if(focus == 1 && holding == 0 && deleteCollided == 1 && windowCollided == 1) 
     {
       ui1->remove(this);//remove self
+      return;
     }
 
     //if we are starting a new click and its on the window
@@ -1930,7 +1928,7 @@ Text& UI::addText(const char *id_input, String text, int fontsize, uint16_t colo
 }
 
 // get the desired ui
-Text& UI::getText(const char *id)
+inline Text& UI::getText(const char *id)
 {
   // we go through all of the ui elements
   return *((Text*)(findElementWithId(id)));
@@ -1948,7 +1946,7 @@ Button& UI::addButton(const char* id_input, String text, int fontsize, uint16_t 
 }
 
 // get the desired ui
-Button& UI::getButton(const char* id)
+inline Button& UI::getButton(const char* id)
 {
   return *((Button*)findElementWithId(id));
 
@@ -1964,13 +1962,14 @@ Window& UI::addWindow(const char* id_input, uint16_t colour, T1 xpos, T2 ypos, u
   return *element;
 }
 
-Window& UI::getWindow(const char* id)
+inline Window& UI::getWindow(const char* id)
 {
   return *((Window*)findElementWithId(id));
 
   // if we didn't find a corresponding id
   println("ERROR, couldn't find '", id, "' in the list of ui elements");
 }
+
 
 //global::Terminal
 class Terminal : public UIelement
@@ -1983,14 +1982,23 @@ class Terminal : public UIelement
   uint8_t pressedEnter = 0;//helper variable to not repeat Enter when held
   uint8_t windowDied = 0;//helper variable to check if the window died, and if it did, we should delete the whole Terminal object as well
   uint8_t barCollision = 0;//stop code from registering  
+  uint8_t cmdAvailable = 0;
+  int textScrollingSpeed = 10;//speed / size of the steps each time you scroll
+  char* cmdBuffer = nullptr;//make a cmd buffer (which is going to the sdram)
+  void* deathCallbackInput = nullptr;//this is what is going to get inputed to the deathCallBack function
+  void (*deathCallback)(void*) = nullptr;//this function gets called during the destructo rof the Window element (this is for some use that I needed, don't ask)
+  
 
   //if the window ever dies then its going to call this function (make it static so complier don't go KABOOM)
   static void deathCallbackTerminal(void* input)
   {
     if(input != nullptr)
     {
-      uint8_t& var = *((uint8_t*)(input));//transform mistery input into our variable
-      var = 1;//set windowDied to true
+      Terminal* terminal = (Terminal*)(input);
+
+      terminal->windowDied = 1;
+
+      terminal->ui->remove(terminal);      
     }else
     {
       println("ERROR line ",__LINE__,", the input was a nullptr");
@@ -2013,10 +2021,17 @@ class Terminal : public UIelement
   //Terminal::handleKeyboardInput
   void handleKeyboardInput()
   {
+    //check if cmdBuffer has not been initialized
+    if(cmdBuffer == nullptr)
+    {
+      cmdBuffer = (char*)SDRAM.malloc(256);//get some space but in sdram instead because its BIG
+      cmdBuffer[0] = '\0';//set it to empty string just to be sure
+    }
+
     //is the child window gone
     if(windowDied)
     {
-      ui->remove(id);//self destruct if child window is gone
+      ui->remove(this);//self destruct if child window is gone
     }
 
     // DEBUG(window.selected);
@@ -2041,6 +2056,17 @@ class Terminal : public UIelement
       //did we press enter
       if(kbd.keys.lctrl == 0 && kbd.keys.lalt == 0 && kbd.keys.lshift == 0 && kbd.currKey == KEY_ENTER && pressedEnter == 0)
       {
+        //get rid of the '\n' that pressing enter creates
+        //simulate a backspace (to get rid of the '\n' character) very cursed, prob going to regret it later, but it works
+        //we don't need to do anything if the string is already length 0
+        if(kbd.cursorIndex != 0)
+        {
+            //remove the character just behind the cursorIndex
+            kbd.buffer = kbd.buffer.substring(0, kbd.cursorIndex - 1) + kbd.buffer.substring(kbd.cursorIndex);
+
+            kbd.cursorIndex -= 1;
+        }
+
         //find the last '\n' char
         int index = kbd.buffer.length() - 2;
         while(index > 0 && kbd.buffer[index] != '\n')
@@ -2049,17 +2075,20 @@ class Terminal : public UIelement
         }
 
         String textCommand = "";
-        if((kbd.buffer.length() - 2) - index <= 0)
+        if((kbd.buffer.length()) - index <= 0)
         {
           println("ERROR line ",__LINE__,", zero or bellow zero length command");
         }else
         {
           //get the command based on the last '\n' character index
-          textCommand = kbd.buffer.substring(index, kbd.buffer.length() - 1); //get the specific command typed in the chat
+          textCommand = kbd.buffer.substring(index, kbd.buffer.length()); //get the specific command typed in the chat
         }
 
         //throw whatever we just wrote into the fixed size (so we can't backspace it away)
-        text.fixedText += kbd.buffer + "unknown command : '" + textCommand + "' \n";
+        text.fixedText += kbd.buffer + '\n';
+
+        strcpy(cmdBuffer, textCommand.c_str());//copy the command to a permanent command buffer so that the kernel can use the command and respond to the terminal
+        cmdAvailable += 1;//make the command available
 
         //clear both buffers and text Just to be sure
         text.text = "";
@@ -2077,6 +2106,55 @@ class Terminal : public UIelement
 
         //and also re-enable the buffer since we disabled it last command
         kbd.enableBuffer = true;
+      }else if(kbd.keys.lctrl == 0 && kbd.keys.lalt == 1 && kbd.keys.lshift == 0)
+      {
+        #define TERMINAL_MAX_SCROLL_SPEED 67
+         
+
+        //if we just pressed the up arrow
+        if(kbd.checkForKey(KEY_UPARROW))
+        {
+          text.y -= textScrollingSpeed;
+        }
+        
+        //if we just pressed the down arrow
+        if(kbd.checkForKey(KEY_DOWNARROW))
+        {
+          text.y += textScrollingSpeed;
+        }
+        
+        //if we just pressed the left arrow
+        if(kbd.checkForKey(KEY_LEFTARROW))
+        {
+          text.x -= textScrollingSpeed;
+        }
+        
+        //if we just pressed the right arrow
+        if(kbd.checkForKey(KEY_RIGHTARROW))
+        {
+          text.x += textScrollingSpeed;          
+        }
+
+        //if we just pressed teh - key
+        if(kbd.checkForKey(KEY_MINUS_UNDERSCORE))
+        {
+          //bound check (we don't want negative scrolling speed lol)
+          if(textScrollingSpeed >= 0)
+          {
+            textScrollingSpeed -= 1;
+          }
+        }
+
+        //if we just presseed the + (technically = key, but who fucking cares, close enough)
+        if(kbd.checkForKey(KEY_EQUAL_PLUS))
+        {
+          //bound check (we don't want to go supersonic scrolling speeds)
+          if(textScrollingSpeed <= TERMINAL_MAX_SCROLL_SPEED)
+          {
+            textScrollingSpeed += 1;
+          }
+        }
+
       }
         
     }
@@ -2086,10 +2164,16 @@ class Terminal : public UIelement
   //Terminal::update
   void update()
   {
+    //check if cmdBuffer has not been initialized
+    if(cmdBuffer == nullptr)
+    {
+      cmdBuffer = (char*)SDRAM.malloc(256);//get some space but in sdram instead because its BIG
+    }
+
     //is the child window gone?
     if(windowDied)
     {
-      ui->remove(id);//self destruct if child window is gone
+      ui->remove(this);//self destruct if child window is gone
     }
   }
 
@@ -2135,12 +2219,20 @@ class Terminal : public UIelement
 
     //add a death callback function to auto delete the Terminal class if the window was ever to be deleted
     window.deathCallback = Terminal::deathCallbackTerminal;
-    window.deathCallbackInput = &windowDied;
+    window.deathCallbackInput = (void*)this;
   }
 
   ~Terminal()
   {
-    delete[] id;//remove the id that was alocated in memory for this ui element
+    
+    //play the mistery deathCallback function if it is not a nullptr
+    if(deathCallback != nullptr)
+    {
+      (*deathCallback)(deathCallbackInput);//play the function
+    }
+
+    SDRAM.free((void*)(cmdBuffer));//free the cmd buffer or else we boutta get some memory leaks
+
     println("Terminal destructor for ID : ",id," <- NOTICE ------------------------------------------------------------");
   }
 };
@@ -2153,7 +2245,7 @@ Terminal& UI::addTerminal(const char* id_input, T1 window_x, T2 window_y, int16_
   return *element;
 }
 
-Terminal& UI::getTerminal(const char* id)
+inline Terminal& UI::getTerminal(const char* id)
 {
   return *((Terminal*)findElementWithId(id));
 
@@ -2162,7 +2254,7 @@ Terminal& UI::getTerminal(const char* id)
 }
 
 
-void nullfunc(bool nothing){}
+inline void nullfunc(bool nothing){}
 
 /*
 // void drawScreen()

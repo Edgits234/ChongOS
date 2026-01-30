@@ -15,10 +15,14 @@
 #define KERNELOS_H
 
 // #include <Arduino.h>
-#include<Arduino.h>
+#include <Arduino.h>
 #include <SD.h>
 #include <SPI.h>
 #include <Wire.h>
+
+#define UI_SETTINGS 0b100  //set a setting to disable the calling of displayFrameBuffer (this is because we want to catch up frames)
+#include <AwesomeUI.h>//include the ui manager library
+
 
 // ============================================================================
 // SYSTEM CALL DEFINITIONS
@@ -143,7 +147,7 @@ enum SyscallResult {
 #elif defined(ARDUINO_AVR_MEGA2560)
   #define SD_CS_PIN 53  // Arduino Mega default
 #elif defined(ARDUINO_GIGA)
-  #define SD_CS_PIN 10  // Giga R1 WiFi default
+  #define SD_CS_PIN 7   // Giga R1 WiFi default
 #else
   #define SD_CS_PIN 10  // Generic Arduino default (Uno, etc.)
 #endif
@@ -417,8 +421,11 @@ public:
   static void debug(const char* message);
   static uint32_t uptime();
   static int getCurrentTaskId();
+  static void printTaskList(Text& textToPrint);
   static void printTaskList();
+  static void printMemoryInfo(Text& textToPrint);
   static void printMemoryInfo();
+  static void temporaryDebugYield();
 };
 
 // ============================================================================
@@ -599,6 +606,24 @@ namespace OS {
   inline uint32_t uptime() {
     return KernelOS::uptime();
   }
+
+  inline void temporaryDebugYield()
+  {
+    return KernelOS::temporaryDebugYield();
+  }
 }
 
+//pre define the void shellTask() function to make it visible to the shell.ino (main program)
+void shellTask();
+
+//pre define update function
+void updateDisplayTask();
+
 #endif // KERNEL_H
+
+
+
+
+
+
+

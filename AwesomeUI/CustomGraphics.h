@@ -9,6 +9,8 @@
 #define SPI_SETTINGS 40000000//8000000
 #include <SPI.h>
 
+#define TAB_WIDTH 8//max size that is going to be done
+
 // I STOLE THIS FROM TFT_eSPI *MAKING THIS KNOWN OUT THERE*
 // Default color definitions
 #define TFT_BLACK       0x0000      /*   0,   0,   0 */
@@ -73,7 +75,7 @@ static_assert(!strings_equal(STRINGIZE(WOKWI_SIM), "[0 or 1]"), "haha very funny
     // Point directly to SDRAM base + offset to avoid conflicts
 
     #define SCREEN_BUFFER_SIZE SCREEN_WIDTH*2*SCREEN_HEIGHT
-    uint8_t* screenBuffer = nullptr;
+    inline uint8_t* screenBuffer = nullptr;
 
     // Hardware pointer to SPI5 (the actual peripheral pins 11,12,13 use)
     #define SPI5_HW ((SPI_TypeDef *)SPI5_BASE)
@@ -107,12 +109,12 @@ struct BoundingBox
 };
 
 //custom nice to have quick prints : 
-template <typename T> void print(T input){Serial.print(input);} template<typename T, typename... Args> void print(T input, Args... other){Serial.print(input); print(other...);}void println(){Serial.println();}template <typename T>void println(T input) {Serial.println(input);}template <typename T, typename... Args> void println(T input, Args... other){Serial.print(input);println(other...);}
-template <typename T> void print1(T input){Serial.print(input);} template<typename T, typename... Args> void print1(T input, Args... other){Serial.print(input); Serial.print(", "); print1(other...);}void println1(){Serial.println();}template <typename T>void println1(T input) {Serial.println(input);}template <typename T, typename... Args> void println1(T input, Args... other){Serial.print(input);Serial.print(", ");println1(other...);}
+template <typename T> void print(T input){Serial.print(input);} template<typename T, typename... Args> void print(T input, Args... other){Serial.print(input); print(other...);}inline void println(){Serial.println();}template <typename T>void println(T input) {Serial.println(input);}template <typename T, typename... Args> void println(T input, Args... other){Serial.print(input);println(other...);}
+template <typename T> void print1(T input){Serial.print(input);} template<typename T, typename... Args> void print1(T input, Args... other){Serial.print(input); Serial.print(", "); print1(other...);}inline void println1(){Serial.println();}template <typename T>void println1(T input) {Serial.println(input);}template <typename T, typename... Args> void println1(T input, Args... other){Serial.print(input);Serial.print(", ");println1(other...);}
 #if enableTestPrints
-void testprintln(){Serial.println();}template <typename T>void testprintln(T input) {Serial.println(input);}template <typename T, typename... Args> void testprintln(T input, Args... other){Serial.print(input);println(other...);}
+inline void testprintln(){Serial.println();}template <typename T>void testprintln(T input) {Serial.println(input);}template <typename T, typename... Args> void testprintln(T input, Args... other){Serial.print(input);println(other...);}
 #else
-void testprintln(){}template <typename T>void testprintln(T input) {}template <typename T, typename... Args> void testprintln(T input, Args... other){}
+inline void testprintln(){}template <typename T>void testprintln(T input) {}template <typename T, typename... Args> void testprintln(T input, Args... other){}
 #endif
 
 //the holy grail of printing functions
@@ -196,10 +198,10 @@ void printArrayHelper(T* input, size_t size)
 #define ILI9341_RAMWR 0x2C
 
 //for indexing the right character
-const char* fontChar = "\x1A""aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ1234567890+-.,!?=:/*()'_";
+inline const char* fontChar = "\x1A""aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ1234567890+-.,!?=:/*()'_$<>[]~";
 
 //the font
-const uint8_t font[] = {0b00000001,0b00010101,0b00010101,0b00010000,0b00000000,0b01110100,0b10100100,0b11110111,0b01000111,0b11110001,0b10001100,0b01100001,0b00001110,0b01001010,0b01001100,0b11110100,0b01111101,0b00011000,0b11111000,0b00000000,0b01110100,0b00100000,0b11100111,0b01000110,0b00010000,0b10001011,0b10000010,0b00010111,0b11000110,0b00101111,0b11110100,0b01100011,0b00011000,0b11111000,0b00001110,0b10001111,0b10100000,0b11101111,0b11000011,0b10010000,0b10000111,0b11000100,0b01000111,0b00010000,0b10000100,0b11111100,0b00111001,0b00001000,0b01000000,0b00001110,0b10001011,0b11000010,0b11100111,0b01000010,0b00010011,0b10001011,0b11100001,0b00001111,0b01000110,0b00110001,0b10001100,0b01111111,0b00011000,0b11000100,0b00000100,0b00000001,0b00001000,0b01000111,0b00010000,0b10000100,0b00100011,0b10001000,0b00000010,0b00010000,0b10001000,0b11111000,0b10000100,0b00101001,0b00110010,0b00010000,0b10100110,0b00101001,0b00101000,0b11001011,0b00010100,0b10010100,0b01001000,0b01000010,0b00010000,0b10000010,0b10000100,0b00100001,0b00001000,0b01111100,0b00000000,0b01010101,0b01101011,0b00011101,0b11010110,0b10110101,0b10101101,0b01000000,0b00001111,0b01000110,0b00110001,0b10001110,0b01101011,0b01011001,0b11000100,0b00000000,0b01110100,0b01100010,0b11100111,0b01000110,0b00110001,0b10001011,0b10000001,0b11101000,0b11111010,0b00010000,0b11110100,0b01100011,0b11101000,0b01000000,0b00001111,0b10001011,0b11000010,0b00010111,0b01000110,0b00110001,0b10011011,0b11000000,0b00000100,0b00111101,0b00001000,0b11110100,0b01111101,0b00011000,0b11000100,0b00000110,0b01000001,0b00000100,0b11000111,0b01000001,0b10000011,0b10001011,0b10001000,0b11100010,0b00010000,0b10000100,0b11111001,0b00001000,0b01000010,0b00010000,0b00000000,0b10001100,0b01100010,0b11111000,0b11000110,0b00110001,0b10001011,0b10000000,0b00001000,0b11000101,0b01000100,0b10001100,0b01100010,0b10100101,0b00010000,0b00000000,0b10101101,0b01101010,0b10101010,0b11010110,0b10110101,0b10101010,0b10000001,0b00011000,0b10111010,0b00110001,0b10001100,0b01011101,0b00011000,0b11000100,0b00010001,0b10001011,0b11000010,0b11101000,0b11000101,0b11000100,0b00100001,0b00000000,0b00001111,0b10001001,0b00011111,0b11111000,0b10001000,0b10001000,0b01111100,0b10001100,0b00100001,0b00001000,0b11100111,0b01000100,0b01000100,0b01000111,0b11011101,0b00010011,0b00000110,0b00101110,0b10010100,0b10111110,0b00100001,0b00001011,0b11110000,0b11110000,0b01100010,0b11100111,0b11000011,0b11010001,0b10001011,0b10111110,0b00010001,0b00010001,0b00001000,0b01110100,0b01011101,0b00011000,0b10111001,0b11010001,0b01111000,0b01000010,0b00010111,0b01000110,0b10110101,0b10001011,0b10000000,0b01000010,0b01111100,0b10000100,0b00000000,0b00000001,0b11110000,0b00000000,0b00000000,0b00000000,0b00000000,0b01000000,0b00000000,0b00000000,0b00100001,0b00001000,0b01000010,0b00010000,0b00000100,0b01110100,0b01000100,0b01000000,0b00010000,0b00000000,0b11111000,0b00111110,0b00000000,0b00010000,0b00000000,0b00100000,0b00000000,0b00010001,0b00010001,0b00010000,0b01010001,0b00010100,0b00000000,0b00000000,0b10001000,0b01000010,0b00010000,0b01000010,0b00001000,0b01000010,0b00010001,0b00001000,0b01000010,0b00000000,0b00000000,0b00000000,0b00000000,0b00000000,0b01111100};
+const uint8_t font[] = {0b00000001,0b00010101,0b00010101,0b00010000,0b00000000,0b01110100,0b10100100,0b11110111,0b01000111,0b11110001,0b10001100,0b01100001,0b00001110,0b01001010,0b01001100,0b11110100,0b01111101,0b00011000,0b11111000,0b00000000,0b01110100,0b00100000,0b11100111,0b01000110,0b00010000,0b10001011,0b10000010,0b00010111,0b11000110,0b00101111,0b11110100,0b01100011,0b00011000,0b11111000,0b00001110,0b10001111,0b10100000,0b11101111,0b11000011,0b10010000,0b10000111,0b11000100,0b01000111,0b00010000,0b10000100,0b11111100,0b00111001,0b00001000,0b01000000,0b00001110,0b10001011,0b11000010,0b11100111,0b01000010,0b00010011,0b10001011,0b11100001,0b00001111,0b01000110,0b00110001,0b10001100,0b01111111,0b00011000,0b11000100,0b00000100,0b00000001,0b00001000,0b01000111,0b00010000,0b10000100,0b00100011,0b10001000,0b00000010,0b00010000,0b10001000,0b11111000,0b10000100,0b00101001,0b00110010,0b00010000,0b10100110,0b00101001,0b00101000,0b11001011,0b00010100,0b10010100,0b01001000,0b01000010,0b00010000,0b10000010,0b10000100,0b00100001,0b00001000,0b01111100,0b00000000,0b01010101,0b01101011,0b00011101,0b11010110,0b10110101,0b10101101,0b01000000,0b00001111,0b01000110,0b00110001,0b10001110,0b01101011,0b01011001,0b11000100,0b00000000,0b01110100,0b01100010,0b11100111,0b01000110,0b00110001,0b10001011,0b10000001,0b11101000,0b11111010,0b00010000,0b11110100,0b01100011,0b11101000,0b01000000,0b00001111,0b10001011,0b11000010,0b00010111,0b01000110,0b00110001,0b10011011,0b11000000,0b00000100,0b00111101,0b00001000,0b11110100,0b01111101,0b00011000,0b11000100,0b00000110,0b01000001,0b00000100,0b11000111,0b01000001,0b10000011,0b10001011,0b10001000,0b11100010,0b00010000,0b10000100,0b11111001,0b00001000,0b01000010,0b00010000,0b00000000,0b10001100,0b01100010,0b11111000,0b11000110,0b00110001,0b10001011,0b10000000,0b00001000,0b11000101,0b01000100,0b10001100,0b01100010,0b10100101,0b00010000,0b00000000,0b10101101,0b01101010,0b10101010,0b11010110,0b10110101,0b10101010,0b10000001,0b00011000,0b10111010,0b00110001,0b10001100,0b01011101,0b00011000,0b11000100,0b00010001,0b10001011,0b11000010,0b11101000,0b11000101,0b11000100,0b00100001,0b00000000,0b00001111,0b10001001,0b00011111,0b11111000,0b10001000,0b10001000,0b01111100,0b10001100,0b00100001,0b00001000,0b11100111,0b01000100,0b01000100,0b01000111,0b11011101,0b00010011,0b00000110,0b00101110,0b10010100,0b10111110,0b00100001,0b00001011,0b11110000,0b11110000,0b01100010,0b11100111,0b11000011,0b11010001,0b10001011,0b10111110,0b00010001,0b00010001,0b00001000,0b01110100,0b01011101,0b00011000,0b10111001,0b11010001,0b01111000,0b01000010,0b00010111,0b01000110,0b10110101,0b10001011,0b10000000,0b01000010,0b01111100,0b10000100,0b00000000,0b00000001,0b11110000,0b00000000,0b00000000,0b00000000,0b00000000,0b01000000,0b00000000,0b00000000,0b00100001,0b00001000,0b01000010,0b00010000,0b00000100,0b01110100,0b01000100,0b01000000,0b00010000,0b00000000,0b11111000,0b00111110,0b00000000,0b00010000,0b00000000,0b00100000,0b00000000,0b00010001,0b00010001,0b00010000,0b01010001,0b00010100,0b00000000,0b00000000,0b10001000,0b01000010,0b00010000,0b01000010,0b00001000,0b01000010,0b00010001,0b00001000,0b01000010,0b00000000,0b00000000,0b00000000,0b00000000,0b00000000,0b01111100,0b10001110,0b10100011,0b10001010,0b11100000,0b00001000,0b10001000,0b00100000,0b10000000,0b10000010,0b00001000,0b10001000,0b01110010,0b00010000,0b10000100,0b00111001,0b11000010,0b00010000,0b10000100,0b11100000,0b00000001,0b00010101,0b00010000,0b00000000};
 
 //global::Array
 template<typename T>
@@ -291,7 +293,7 @@ class Array
   }
 };
 
-int16_t clamp16(int input)
+inline int16_t clamp16(int input)
 {
     int clamped = min(INT16_MAX, max(INT16_MIN, input));
     if(clamped != input) 
@@ -303,12 +305,12 @@ int16_t clamp16(int input)
     return (int16_t)(clamped);
 }
 
-int16_t clamp16(double input)
+inline int16_t clamp16(double input)
 {
     return clamp16((int)input);
 }
 
-uint16_t color(byte red, byte green, byte blue)
+inline uint16_t color(byte red, byte green, byte blue)
 {    
     #if true //WOKWI_SIM
         // maping the colors from 255 to  their respective map
@@ -327,7 +329,7 @@ uint16_t color(byte red, byte green, byte blue)
     #endif
 }
 
-uint16_t color(Color input)
+inline uint16_t color(Color input)
 {
   // maping the colors from 255 to  their respective map
   input.r = input.r * 32 / 256;
@@ -337,7 +339,7 @@ uint16_t color(Color input)
   return ((uint16_t)(input.r) << 11) + ((uint16_t)(input.g) << 5) + (uint16_t)(input.b);
 }
 
-Color toColor(uint16_t input)
+inline Color toColor(uint16_t input)
 {
   Color variable;
 
@@ -348,7 +350,7 @@ Color toColor(uint16_t input)
   return variable;
 }
 
-uint16_t color565(int r, int g, int b)
+inline uint16_t color565(int r, int g, int b)
 {
     r = max(0, min(31, r));
     g = max(0, min(63, g));
@@ -357,7 +359,7 @@ uint16_t color565(int r, int g, int b)
     return ((uint16_t)(r) << 11) + ((uint16_t)(g) << 5) + (uint16_t)(b);
 }
 
-Color toColor565(uint16_t input)
+inline Color toColor565(uint16_t input)
 {
     Color c = {0, 0, 0};
     c.r = ((input & 0xF800) >> 11);
@@ -367,19 +369,19 @@ Color toColor565(uint16_t input)
     return c;
 }
 
-long long powi(long base, long exp) {
+inline long long powi(long base, long exp) {
     long long res = 1;
     for (int i = 0; i < exp; i++) res *= base;
     return res;
 }
 
-unsigned long long upowi(long base, long exp){
+inline unsigned long long upowi(long base, long exp){
     unsigned long long res = 1;
     for (int i = 0; i < exp; i++) res *= base;
     return res;
 }
 
-int getDigits(long long input, int i1, int i2 = -1)
+inline int getDigits(long long input, int i1, int i2 = -1)
 {
     if(i2 == -1)
     {
@@ -389,7 +391,7 @@ int getDigits(long long input, int i1, int i2 = -1)
     return (input / powi(10, i1 - 1) * powi(10, i1 - 1) - input / powi(10, i2) * powi(10, i2)) / powi(10, i1 - 1);
 }
 
-int getDigits(unsigned long long input, int i1, int i2 = -1)
+inline int getDigits(unsigned long long input, int i1, int i2 = -1)
 {
     if(i2 == -1)
     {
@@ -401,7 +403,7 @@ int getDigits(unsigned long long input, int i1, int i2 = -1)
 
 
 /*this is a very dumb function to let me see differences between stuff that have a different index so I can see if my shit is optimal, it probably doesn't do what you think it does*/
-uint16_t convertNumberToColor(uint8_t number)
+inline uint16_t convertNumberToColor(uint8_t number)
 {
     number %= 10;   
 
@@ -422,14 +424,14 @@ uint16_t convertNumberToColor(uint8_t number)
     return 0;
 }
 
-bool fontUnpacker(int i)
+inline bool fontUnpacker(int i)
 {
   int index = i / 8;
   bool output = (font[index] & (1 << (7 - (i % 8)))) != 0;
   return output;
 }
 
-void writeCommand(uint8_t cmd) {
+inline void writeCommand(uint8_t cmd) {
     #if WOKWI_SIM
         digitalWrite(DC_PIN, LOW);
         digitalWrite(CS_PIN, LOW);
@@ -458,7 +460,7 @@ void writeCommand(uint8_t cmd) {
     #endif
 }
 
-void writeData(uint8_t data) {
+inline void writeData(uint8_t data) {
     #if WOKWI_SIM
         digitalWrite(DC_PIN, HIGH);
         digitalWrite(CS_PIN, LOW);
@@ -532,7 +534,7 @@ void writeData(uint8_t data) {
         writeCommand(ILI9341_RAMWR);
     }
 #else
-    void displayFrameBuffer() {
+    inline void displayFrameBuffer() {
         
         // **DISABLE INTERRUPTS - Critical section**
         // noInterrupts();
@@ -622,7 +624,7 @@ void writeData(uint8_t data) {
     }
 #endif
 
-Size getTextBounds(const char* text, int16_t fontsize)
+inline Size getTextBounds(const char* text, int16_t fontsize)
 {
   unsigned int i = 0;
   int lineLen = 0;
@@ -653,7 +655,7 @@ Size getTextBounds(const char* text, int16_t fontsize)
   return {(int16_t)(maxLineLen - fontsize), (int16_t)((nofnewlines * (FONT_HEIGHT + 1) - 1) * fontsize)};
 }
 
-Size getTextBounds(String text, int16_t fontsize)
+inline Size getTextBounds(String text, int16_t fontsize)
 {
     return getTextBounds(text.c_str(), fontsize);
 }
@@ -977,7 +979,7 @@ class TFT
     void drawChar(char c, int16_t x, int16_t y, int16_t si, uint16_t colour)
     {
         //return if the character is space (we don't need to draw space)
-        if(c == ' ')
+        if(c == ' ' || c == '\t')
         {
             return;
         }
@@ -995,7 +997,8 @@ class TFT
         //si ont a pas trouvé le charactère (c)
         if (charIndex == -1)
         {
-            Serial.print("ERROR, couldn't find the character : '"); Serial.print(c); Serial.println("'");
+            Serial.print("ERROR, couldn't find the character : '"); Serial.print(c); Serial.print("' -> "); Serial.println((uint8_t)c);
+            delay(1000);
             charIndex = 0;//put the "unknown" character
 
             // return;
@@ -1598,9 +1601,9 @@ class TFT
     }
 };
 
-TFT tft;
+inline TFT tft;
 
-void SerialBegin()
+inline void SerialBegin()
 {
     Serial.begin(9600);
     while(!Serial);

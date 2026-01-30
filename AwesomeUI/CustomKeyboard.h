@@ -8,7 +8,7 @@
 //============= CUSTOM KEYBOARD CLASS ===============//
 #include <USBHostGiga.h>//this is for the keyboard
 
-Keyboard keyb;
+inline Keyboard keyb;
 
 class KeyboardManager
 {
@@ -61,7 +61,7 @@ class KeyboardManager
     void testKeys(HID_KEYBD_Info_TypeDef key)
     {
         //if no special keys were pressed
-        if(key.lalt == 0 && key.lctrl == 0 && key.lshift == 0)
+        if(key.lalt == 0 && key.ralt == 0 && key.lctrl == 0 && key.lshift == 0)
         {
 
             if(currKey == KEY_UPARROW)
@@ -96,7 +96,7 @@ class KeyboardManager
         
         }
         
-        if(key.lalt == 0 && key.lctrl == 0)
+        if(key.lalt == 0 && key.ralt == 0 && key.lctrl == 0)
         {
             
             //now we update the buffer
@@ -354,7 +354,7 @@ class KeyboardManager
             }
 
         
-        }else if(key.lalt == 0 && key.lctrl == 1 && key.lshift == 0)
+        }else if(key.lalt == 0 && key.ralt == 0 && key.lctrl == 1 && key.lshift == 0)
         {
 
             if(currKey == KEY_BACKSPACE)
@@ -440,7 +440,7 @@ class KeyboardManager
                         }else
                         {
                             return;//return we are at the end, no point in continuing
-                        }
+                        }   
                     }
 
                     //go past everything that is not a new line or a space
@@ -524,6 +524,42 @@ class KeyboardManager
             }
 
             return;
+        }else if(key.lalt == 0 && key.ralt == 1 && key.lctrl == 0 && key.lshift == 0)
+        {
+            if(currKey == KEY_OBRACKET_AND_OBRACE)
+            {
+                #if defined(FRENCH_CANADIAN_KEYBOARD)
+                    currChar = '[';//weird character
+                #elif defined(ENGLISH_CANADIAN_KEYBOARD)
+                    //does nothing
+                #endif
+            }else if(currKey == KEY_CBRACKET_AND_CBRACE)
+            {
+                #if defined(FRENCH_CANADIAN_KEYBOARD)
+                    currChar = ']';//weird character
+                #elif defined(ENGLISH_CANADIAN_KEYBOARD)
+                    //does nothing
+                #endif
+
+            }else if(currKey == KEY_SINGLE_AND_DOUBLE_QUOTE)
+            {
+                #if defined(FRENCH_CANADIAN_KEYBOARD)
+                    currChar = '{';
+                #elif defined(ENGLISH_CANADIAN_KEYBOARD)
+                    //does nothing
+                #endif
+            }else if(currKey == KEY_BACKSLASH_VERTICAL_BAR)
+            {
+                #if defined(FRENCH_CANADIAN_KEYBOARD)
+                    currChar = '}';
+                #elif defined(ENGLISH_CANADIAN_KEYBOARD)
+                    //does nothing
+                #endif
+            }else
+            {
+                return;
+            }
+
         }else
         {
             return;
@@ -672,7 +708,7 @@ class KeyboardManager
 
 };
 
-KeyboardManager kbd;
+inline KeyboardManager kbd;
 
 //============= CUSTOM KEYBOARD CLASS ===============//
 
