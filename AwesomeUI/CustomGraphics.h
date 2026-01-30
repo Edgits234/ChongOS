@@ -998,7 +998,7 @@ class TFT
         if (charIndex == -1)
         {
             Serial.print("ERROR, couldn't find the character : '"); Serial.print(c); Serial.print("' -> "); Serial.println((uint8_t)c);
-            delay(1000);
+            // delay(1000);
             charIndex = 0;//put the "unknown" character
 
             // return;
