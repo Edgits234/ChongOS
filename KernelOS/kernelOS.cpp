@@ -131,6 +131,10 @@ bool KernelOS::init() {
   bootTime = millis();
   watchdogLastCheck = millis();
   initialized = true;
+
+  // Initialize hardware watchdog (add this near the end of init())
+  mbed::Watchdog &watchdog = mbed::Watchdog::get_instance();
+  watchdog.start(WATCHDOG_TIMEOUT_MS);
   
   if (kernelDisplayOutput) kernelDisplayOutput->println(F("Kernel initialized successfully\n"));
   return true;
@@ -399,7 +403,14 @@ void KernelOS::monitorTaskHealth() {
   }
   
   // Keep watchdog alive - this function is called from main thread
-  Watchdog::get_instance().kick();
+  // Note: Mbed OS watchdog is typically configured at boot
+  // For now, we'll skip the watchdog kick here
+  // If you want to use hardware watchdog, you need to initialize it in init()
+  // Keep watchdog alive - this function is called from main thread
+  mbed::Watchdog &watchdog = mbed::Watchdog::get_instance();
+  if (watchdog.is_running()) {
+    watchdog.kick();
+  }
 }
 
 // ============================================================================
@@ -1197,9 +1208,9 @@ uint32_t KernelOS::uptime() {
   return millis() - bootTime;
 }
 
-int KernelOS::getCurrentTaskId() {
-  return currentTaskId;
-}
+// int KernelOS::getCurrentTaskId() {
+//   return currentTaskId;
+// }
 
 void KernelOS::printTaskList(Text& textToPrint) {
   textToPrint.println(F("\n=== Task List ==="));
@@ -1254,6 +1265,10 @@ void KernelOS::printTaskList() {
     kernelDisplayOutput->println(buffer);
   }
   kernelDisplayOutput->println(F(""));
+}
+
+size_t KernelOS::memAvailable() {
+  return KERNEL_HEAP_SIZE - heapUsed;
 }
 
 void KernelOS::printMemoryInfo(Text& textToPrint) {

@@ -1,4 +1,5 @@
-#include <kernelOS.h>
+#include <Arduino.h>
+#include "kernelOS.h"
  
 
 /*
@@ -1173,9 +1174,14 @@ void monitorTask() {
 void setup() {
   Wire.begin();
   // Initialize watchdog
-  Watchdog &watchdog = Watchdog::get_instance();
+  mbed::Watchdog &watchdog = mbed::Watchdog::get_instance();
   watchdog.start(5000);  // 5 second timeout
   
+  Serial.begin(9600);
+  while(!Serial);
+  delay(500);
+  println("Starting !!!");
+
   // Initialize kernel
   if (!KernelOS::init()) {
     Serial.println(F("FATAL: Kernel init failed"));

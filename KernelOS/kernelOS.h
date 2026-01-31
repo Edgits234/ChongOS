@@ -7,7 +7,8 @@
 #define KERNELOS_H
 
 // #include <Arduino.h>
-#include <Arduino.h>
+
+#include "drivers/Watchdog.h"
 #include <SD.h>
 #include <SPI.h>
 #include <Wire.h>
@@ -177,6 +178,21 @@ struct Task {
   size_t memoryUsed;
 
   int priority;  // Keep this - pass to Thread constructor
+  
+  // Stack trace support
+  StackFrame stackTrace[MAX_STACK_TRACE_DEPTH];
+  int stackTraceDepth;
+};
+
+// ============================================================================
+// IPC - Message Structure
+// ============================================================================
+
+struct Message {
+  int fromTaskId;
+  uint8_t data[64];      // Message payload (adjust size as needed)
+  size_t length;         // Actual data length
+  uint32_t timestamp;    // When message was sent
 };
 
 // ============================================================================
@@ -280,7 +296,7 @@ private:
   static rtos::Mutex sdMutex;
   static rtos::Mutex displayMutex;
   static rtos::Mutex serialMutex;
-
+  
   // IPC 
   static rtos::Mail<Message, 16> mailQueues[MAX_TASKS];
   static rtos::Semaphore* semaphores[MAX_SEMAPHORES];
@@ -309,7 +325,7 @@ private:
   static Text* kernelDisplayOutput;
   
   // Private methods
-  static int getCurrentTaskId();  // Get task ID of currently executing thread
+  // static int getCurrentTaskId();  // Get task ID of currently executing thread
   static Task* getCurrentTask();
   static Task* getTask(int taskId);
   static int allocateTaskId();
@@ -327,11 +343,6 @@ private:
   // Watchdog 
   static void checkWatchdog();
   
-  // Health monitoring and auto-recovery
-  static void monitorTaskHealth();
-  static void recordTaskActivity(int taskId);
-  static bool attemptTaskRecovery(int taskId);
-  
   // Stack tracing 
   static void captureStackTrace(Task* task);
   static void printStackTrace(Task* task);
@@ -340,6 +351,11 @@ private:
   static int allocateSemaphore();
   
 public:
+  // Health monitoring and auto-recovery
+  static void monitorTaskHealth();
+  static void recordTaskActivity(int taskId);
+  static bool attemptTaskRecovery(int taskId);
+
   // Initialization
   static bool init();
   static void panic(const char* message);
