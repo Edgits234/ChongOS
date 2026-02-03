@@ -490,7 +490,7 @@ class UIelement
 
   /*0b00000000
     ##^^^^^^
-    ##87654321
+    ##876543216
 
   1 -> show selected outline
   2 -> ?
@@ -1087,13 +1087,17 @@ class UIManager : public UI
   public:
   void (*touchInput)(Point p, bool holding, bool lostfocus);
   int number = 0;//what the fuck is that ??? ----------------------------------------------------------------------
+  uint8_t initialized = 0;
   // bool selected = false;
 
   //UIManager::begin
   void begin()
   {
+    println(__func__);
+    if(initialized == 1) return;
+    initialized = 1;
     // Serial.begin(9600);
-    // delay(3000);
+    // DELAY(3000);
     // Serial.println("Starting...");
     // Serial.println("DO NOT FUCKING FORGET ABOUT SAVING CHANGES TO THE ONLINE VERSION OF WOKWI !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
     tft.begin();
@@ -1233,7 +1237,8 @@ class UIManager : public UI
 
 inline UIManager ui;
 
-//global::Text
+//
+
 class Text : public UIelement
 {
   public:
@@ -1294,7 +1299,7 @@ class Text : public UIelement
         //re-enable the touch
         enabletouch = 1;
 
-        //re-enable the rapid fire delay
+        //re-enable the rapid fire DELAY
         kbd.delayLimiter = 0;
       }
 
@@ -1940,7 +1945,7 @@ inline Text& UI::getText(const char *id)
 template <typename T1, typename T2, typename T3, typename T4>
 Button& UI::addButton(const char* id_input, String text, int fontsize, uint16_t colour, T3 textOffsetX, T4 textOffsetY, bool background, uint16_t backgroundcolor, T1 posX, T2 posY, uint16_t width, uint16_t height, void (*function1)(bool input), bool toggle)
 {
-  Button* element = new Button(this, id_input, text, fontsize, colour, textOffsetX, textOffsetY, background, backgroundcolor, posX, posY, width, height, function1);
+  Button* element = new Button(this, id_input, text, fontsize, colour, textOffsetX, textOffsetY, background, backgroundcolor, posX, posY, width, height, function1, toggle);
   uiPointerArray.add((UIelement*)element);
   return *element;
 }
@@ -2290,16 +2295,16 @@ inline void nullfunc(bool nothing){}
     
     //   ui.update();
     
-    //   //delay(1000);
+    //   //DELAY(1000);
     
     //   window.x += 10;
     //   window.y += 10;
     //   window.w -= 50;
     //   window.h -= 50;
     
-    //   //delay(100000);
+    //   //DELAY(100000);
     
-    //   //delay(10000);
+    //   //DELAY(10000);
     // }
     
     
@@ -2317,7 +2322,7 @@ inline void nullfunc(bool nothing){}
   // tft.fillScreen(ui.basecolor);
   ui.update();
   
-  //delay(100);
+  //DELAY(100);
   if(touched())
   {
     Point p = getPoint();
@@ -2485,7 +2490,7 @@ inline void nullfunc(bool nothing){}
   //     // window.y += 1;
   
   
-  //     //delay(10);
+  //     //DELAY(10);
   
   //     // Text& terminal = ui.getText("Terminal");
   
@@ -2493,7 +2498,7 @@ inline void nullfunc(bool nothing){}
   
   //     // ui.update();
   
-  //     // delay(1000);
+  //     // DELAY(1000);
   
   //     // number++;
   //   #else

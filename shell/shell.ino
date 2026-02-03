@@ -14,6 +14,7 @@ struct ShellState {
   char currentDir[128];
   int cmdLen;
   Terminal* terminal = nullptr;
+  uint8_t terminalDied = 0;
 };
 
 //pre define function
@@ -27,80 +28,107 @@ void printPrompt(const char* currentDir, Text& textToPrint) {
   // delay(2000);
 
   println("Printing intial prompt");
-#
+
   textToPrint.print(F("shell:"));
   textToPrint.print(currentDir);
   textToPrint.print(F("$ "));
 
-  ui.update();
-  displayFrameBuffer();
-
 //   while(1);
 }
 
+
 void killShell(void* taskStatePtr)
 {
-    if(taskStatePtr != nullptr)
-    {
-        uint8_t& taskState = *((uint8_t*)(taskStatePtr));
+  uint8_t* terminalDied = (uint8_t*)(taskStatePtr);
 
-        taskState = 3;/*Terminated*/
-    }else
-    {
-        println("ERROR line ",__LINE__," in ",__FILE__,", taskStatePtr is a nullptr (can't delete the shellTask when we should be deleting it)");
-    }
+  if(terminalDied != nullptr)
+  {
+    *terminalDied = 1;//set terminalDied to true
+  }else 
+  {
+    println("ERROR line ",__LINE__," in file ",__FILE__," terminalCallback input was a nullptr. cannot ensure that the shellTask dies with the terminal");
+  }
 }
 
 //function that actually works with the screen
 void shellTask() {
-    ShellState* state = new ShellState();
-    strcpy(state->currentDir, "/");
-    state->cmdLen = 0;
-    state->terminal = &ui.addTerminal("terminal", "middle", "middle", 200, 200, color(0, 0, 0), color(0, 255, 0));
 
-    // Set global display for kernel output
-    globalDisplayText = &state->terminal->text;
-    KernelOS::setDisplayOutput(globalDisplayText);
+  println("starting shellTask");
+  ShellState* state = new ShellState();
+  strcpy(state->currentDir, "/");
+  state->cmdLen = 0;
 
-    printPrompt(state->currentDir, state->terminal->text);
+  KernelOS::getDisplayMutex().lock();
 
-    // This is now the thread's infinite loop
-    while(true) {
-        if(state->terminal->cmdAvailable) {
-            state->terminal->cmdAvailable = 0;
-            processCommand(state->terminal->cmdBuffer, state->currentDir, state->terminal->text);
-            printPrompt(state->currentDir, state->terminal->text);
-        }
+  state->terminal = &ui.addTerminal("terminal", "middle", "middle", 200, 200, color(0, 0, 0), color(0, 255, 0));
+  state->terminal->deathCallback = killShell;//set up the call back function (so that if the terminal dies, the shell task also dies (if we don't do that, we could try accessing the non existent terminal and it would go KABOOM))
+  state->terminal->deathCallbackInput = &state->terminalDied;
+  
+  // Set global display for kernel output
+  globalDisplayText = &state->terminal->text;
+  
+  KernelOS::setDisplayOutput(globalDisplayText);
+  
+  printPrompt(state->currentDir, state->terminal->text);
+  
+  KernelOS::getDisplayMutex().unlock();
 
-        // Record that this task is still alive
-        KernelOS::recordTaskActivity(KernelOS::getCurrentTaskId());
+  // This is now the thread's infinite loop
+  while(true) 
+  {
 
-        // IMPORTANT: Don't busy-wait!
-        rtos::ThisThread::sleep_for(std::chrono::milliseconds(10));
+    //if the terminal died we kill this task
+    if(state->terminalDied == 1)
+    {
+      KernelOS::killTask(KernelOS::getCurrentTaskId());//kill task
+      break;//get out of the loop
+    }else
+    {
+
+      KernelOS::getDisplayMutex().lock();
+      if(state->terminal->cmdAvailable) {
+
+        state->terminal->cmdAvailable = 0;
+        processCommand(state->terminal->cmdBuffer, state->currentDir, state->terminal->text);
+        printPrompt(state->currentDir, state->terminal->text);
+
+      }
+      KernelOS::getDisplayMutex().unlock();
     }
 
-    // Thread cleanup (if it ever exits)
-    delete state;
+    // Record that this task is still alive
+    KernelOS::recordTaskActivity(KernelOS::getCurrentTaskId());
+
+    // IMPORTANT: Don't busy-wait!
+  }
+
+  // Thread cleanup (if it ever exits)
+  delete state;
 }
 
 //function to update the ui and the screen
 void updateDisplayTask()
 {
   while(true) {
-    KernelOS::getDisplayMutex().lock();
+    // This disables scheduler but keeps some interrupts (like watchdog) running
+    
+    
+    KernelOS::getDisplayMutex().lock();//Mutex lock, to prevent from having some weird issues where two threads try and access the same memory causing corruption
+    
     ui.update();
-
+    
     //don't render out to the  if we are waiting of keyboard input
     if(!kbd.Available)
     {
-        displayFrameBuffer();//render on the screen
+      displayFrameBuffer();//render on the screen
     }
-    KernelOS::getDisplayMutex().unlock();
+    
+    KernelOS::getDisplayMutex().unlock();//Mutex unlock, we don't need it anymore
+    
+    
 
     // Record that this task is still alive
     KernelOS::recordTaskActivity(KernelOS::getCurrentTaskId());
-
-    rtos::ThisThread::sleep_for(std::chrono::milliseconds(16));  // ~60 FPS
   }
 }
 
@@ -188,6 +216,7 @@ void cmdLs(const char* path, const char* currentDir, Text& textToPrint) {
   textToPrint.println();
   
   DirEntry entry;
+
   while (OS::readdir(dh, &entry)) {
     if (entry.isDirectory) {
       textToPrint.print(F("  [DIR]  "));
@@ -1074,6 +1103,7 @@ void cmdHwinfo(Text& textToPrint) {
 }
 
 void processCommand(const char* cmdLine, char* currentDir, Text& t) {
+
   // Skip leading whitespace
   while (*cmdLine == ' ') cmdLine++;
   if (*cmdLine == '\0') return;
@@ -1157,12 +1187,13 @@ void monitorTask() {
   // After 3 failed recovery attempts, triggers full system reboot
   
   while(true) {
+
     // Let kernel do health checking
     KernelOS::monitorTaskHealth();
     
     // Record that monitor is alive
     KernelOS::recordTaskActivity(KernelOS::getCurrentTaskId());
-    
+
     rtos::ThisThread::sleep_for(std::chrono::milliseconds(500));
   }
 }
@@ -1174,8 +1205,7 @@ void monitorTask() {
 void setup() {
   Wire.begin();
   // Initialize watchdog
-  mbed::Watchdog &watchdog = mbed::Watchdog::get_instance();
-  watchdog.start(5000);  // 5 second timeout
+  
   
   Serial.begin(9600);
   while(!Serial);
@@ -1203,6 +1233,9 @@ void setup() {
   
   Serial.println(F("Shell ready. Type 'help' for commands."));
   Serial.println(F("Auto-recovery monitor active.\n"));
+
+  // mbed::Watchdog &watchdog = mbed::Watchdog::get_instance();
+  // watchdog.start(5000);  // 5 second timeout
 }
 
 void loop() {

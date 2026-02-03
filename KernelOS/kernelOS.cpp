@@ -5,7 +5,7 @@
 //KERNELOS.cpp FILE
 
 #include "kernelOS.h"
-#include "mbed.h"
+
 
 // ============================================================================
 // STATIC MEMBER INITIALIZATION
@@ -66,7 +66,7 @@ bool KernelOS::init() {
     kernelDisplayOutput->println(F("\n=== ChongOS Kernel v4.0 ==="));
     kernelDisplayOutput->println(F("Initializing..."));
   }
-
+  
   // Initialize the ui library
   ui.basecolor = color(50, 50, 50);  //change the base color (before begin shows up the background)
   ui.begin();
@@ -132,9 +132,9 @@ bool KernelOS::init() {
   watchdogLastCheck = millis();
   initialized = true;
 
-  // Initialize hardware watchdog (add this near the end of init())
-  mbed::Watchdog &watchdog = mbed::Watchdog::get_instance();
-  watchdog.start(WATCHDOG_TIMEOUT_MS);
+  // // Initialize hardware watchdog (add this near the end of init())
+  // mbed::Watchdog &watchdog = mbed::Watchdog::get_instance();
+  // watchdog.start(WATCHDOG_TIMEOUT_MS);
   
   if (kernelDisplayOutput) kernelDisplayOutput->println(F("Kernel initialized successfully\n"));
   return true;
@@ -1372,5 +1372,4 @@ void KernelOS::temporaryDebugYield()
 ///////////////////////////////////////////////
 //      part that was in the shell.ino       //
 ///////////////////////////////////////////////
-
 
